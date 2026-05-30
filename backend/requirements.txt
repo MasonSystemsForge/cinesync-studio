@@ -1,0 +1,8 @@
+celery
+fastapi
+psycopg[binary]
+pydantic-settings
+python-multipart
+redis
+SQLAlchemy
+uvicorn[standard]
