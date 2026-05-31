@@ -1,13 +1,14 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db.session import get_db
 from app.models.job import SyncJob
 from app.models.media import MediaAsset
 from app.models.project import Export, Project, PromptRun, ReviewDecision, Scene, SceneStatus
 from app.schemas.jobs import UploadResponse
+from app.services.media_metadata import probe_media
 from app.services.storage import persist_upload
 from app.worker.tasks import process_job
 
@@ -63,11 +64,16 @@ async def create_upload(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
 
+    metadata = probe_media(storage_path)
     media_asset = MediaAsset(
         original_filename=file.filename,
         content_type=file.content_type,
         size_bytes=size_bytes,
         storage_path=str(storage_path),
+        duration_ms=metadata["duration_ms"],
+        width=metadata["width"],
+        height=metadata["height"],
+        frame_rate=metadata["frame_rate"],
     )
     project = Project(
         media_asset=media_asset,
@@ -92,7 +98,7 @@ async def create_upload(
 
     job = (
         db.query(SyncJob)
-        .options(joinedload(SyncJob.media_asset), joinedload(SyncJob.project))
+        .options(joinedload(SyncJob.media_asset), joinedload(SyncJob.project), selectinload(SyncJob.render_costs))
         .filter(SyncJob.id == job.id)
         .one()
     )

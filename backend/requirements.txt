@@ -1,3 +1,4 @@
+alembic
 celery
 fastapi
 psycopg[binary]

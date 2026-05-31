@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
+from app.models.billing import CreditLedgerEntry, LedgerEntryType, RenderCost
 from app.models.job import JobStage, JobStatus, SyncJob
 from app.models.project import ExportStatus, ProjectStatus, RenderVariant, ReviewStatus, SubtitleSegment
 from app.providers.mock_ai import MockSpeechToTextProvider, MockTranslationProvider
@@ -28,6 +29,15 @@ def _set_progress(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+
+def _estimate_render_cost(job: SyncJob) -> tuple[float, float, float]:
+    media_mb = max(1.0, job.media_asset.size_bytes / 1024 / 1024)
+    duration_seconds = max(1.0, (job.media_asset.duration_ms or 45000) / 1000)
+    render_seconds = max(1.0, duration_seconds * 0.35)
+    estimated_cost_usd = round(0.35 + media_mb * 0.015 + render_seconds * 0.025, 2)
+    credits_used = round(estimated_cost_usd * 100, 2)
+    return estimated_cost_usd, credits_used, render_seconds
 
 
 @celery_app.task(name="jobs.process")
@@ -83,6 +93,26 @@ def process_job(job_id: str) -> None:
 
         _set_progress(db, job, status=JobStatus.processing, stage=JobStage.rendering, progress=85)
         job.render_path = renderer.render(job.id, job.media_asset.storage_path, job.translated_text or "")
+        estimated_cost_usd, credits_used, render_seconds = _estimate_render_cost(job)
+        db.add(
+            RenderCost(
+                project=job.project,
+                job=job,
+                estimated_cost_usd=estimated_cost_usd,
+                credits_used=credits_used,
+                render_seconds=render_seconds,
+            )
+        )
+        db.add(
+            CreditLedgerEntry(
+                project=job.project,
+                job=job,
+                entry_type=LedgerEntryType.debit,
+                credits=credits_used,
+                amount_usd=estimated_cost_usd,
+                description="Mock render usage",
+            )
+        )
         if job.project is not None:
             db.add(
                 RenderVariant(
@@ -95,6 +125,8 @@ def process_job(job_id: str) -> None:
                         "provider": "mock_render",
                         "aspect_ratio": job.project.aspect_ratio,
                         "resolution": job.project.resolution,
+                        "estimated_cost_usd": estimated_cost_usd,
+                        "credits_used": credits_used,
                     },
                 )
             )

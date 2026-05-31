@@ -1,6 +1,9 @@
 from uuid import UUID
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -10,6 +13,7 @@ from app.models.project import (
     Project,
     ProjectStatus,
     PromptRun,
+    Export,
     ReviewDecision,
     Scene,
     SubtitleSegment,
@@ -38,6 +42,7 @@ def project_loader(query):
     return query.options(
         joinedload(Project.media_asset),
         selectinload(Project.jobs).joinedload(SyncJob.media_asset),
+        selectinload(Project.jobs).selectinload(SyncJob.render_costs),
         selectinload(Project.scenes),
         selectinload(Project.subtitles),
         selectinload(Project.render_variants),
@@ -194,7 +199,7 @@ def create_render_job(project_id: UUID, payload: RenderJobCreate, db: Session = 
     job = _queue_project_job(db, project, payload)
     return (
         db.query(SyncJob)
-        .options(joinedload(SyncJob.media_asset))
+        .options(joinedload(SyncJob.media_asset), selectinload(SyncJob.render_costs))
         .filter(SyncJob.id == job.id)
         .one()
     )
@@ -225,3 +230,16 @@ def retry_project_job(project_id: UUID, job_id: UUID, db: Session = Depends(get_
     db.refresh(job)
     process_job.delay(str(job.id))
     return job
+
+
+@router.get("/{project_id}/exports/{export_id}/download")
+def download_project_export(project_id: UUID, export_id: UUID, db: Session = Depends(get_db)) -> FileResponse:
+    export = db.query(Export).filter(Export.project_id == project_id, Export.id == export_id).one_or_none()
+    if export is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export not found")
+    if not export.output_path:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Export is not ready")
+    output_path = Path(export.output_path)
+    if not output_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export artifact is missing")
+    return FileResponse(output_path, filename=output_path.name, media_type="application/octet-stream")

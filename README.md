@@ -82,3 +82,15 @@ to reachable PostgreSQL and Redis instances.
 3. Celery simulates transcription, translation, and rendering.
 4. The render provider writes a JSON artifact containing FFmpeg detection metadata.
 5. The frontend polls `/jobs/{job_id}` to show stage and progress updates.
+
+
+## Database migrations
+
+The backend includes Alembic scaffolding for production-safe schema management:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+For local Docker-based development, the API still creates tables on startup as a convenience. Use Alembic for deployed environments and future schema changes.

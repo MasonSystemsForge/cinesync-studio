@@ -71,6 +71,8 @@ class Project(Base):
     prompt_runs = relationship("PromptRun", back_populates="project", cascade="all, delete-orphan")
     review_decisions = relationship("ReviewDecision", back_populates="project", cascade="all, delete-orphan")
     exports = relationship("Export", back_populates="project", cascade="all, delete-orphan")
+    render_costs = relationship("RenderCost", back_populates="project", cascade="all, delete-orphan")
+    credit_ledger_entries = relationship("CreditLedgerEntry", back_populates="project", cascade="all, delete-orphan")
 
 
 class Scene(Base):

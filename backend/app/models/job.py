@@ -50,3 +50,20 @@ class SyncJob(Base):
     media_asset = relationship("MediaAsset", back_populates="jobs")
     project = relationship("Project", back_populates="jobs")
     render_variants = relationship("RenderVariant", back_populates="job")
+    render_costs = relationship("RenderCost", back_populates="job")
+    credit_ledger_entries = relationship("CreditLedgerEntry", back_populates="job")
+
+
+    @property
+    def latest_cost_usd(self) -> float | None:
+        if not self.render_costs:
+            return None
+        latest = max(self.render_costs, key=lambda cost: cost.created_at)
+        return latest.estimated_cost_usd
+
+    @property
+    def latest_render_seconds(self) -> float | None:
+        if not self.render_costs:
+            return None
+        latest = max(self.render_costs, key=lambda cost: cost.created_at)
+        return latest.render_seconds

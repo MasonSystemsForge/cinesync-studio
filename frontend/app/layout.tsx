@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { StudioTopbar } from "@/components/StudioTopbar";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -50,23 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           </aside>
 
           <section className="workspace">
-            <header className="studio-topbar">
-              <div>
-                <span className="eyebrow">Mission control</span>
-                <h1>Global Launch Video</h1>
-              </div>
-              <div className="topbar-actions">
-                <div className="credits-pill">
-                  <span>Credits</span>
-                  <strong>8,420</strong>
-                </div>
-                <div className="credits-pill muted-pill">
-                  <span>Balance</span>
-                  <strong>$184.20</strong>
-                </div>
-                <button className="profile-button" type="button" aria-label="Open profile menu">AC</button>
-              </div>
-            </header>
+<StudioTopbar />
             {children}
           </section>
         </main>

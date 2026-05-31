@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db.session import get_db
 from app.models.job import JobStatus, SyncJob
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 def list_jobs(db: Session = Depends(get_db)) -> list[SyncJob]:
     return (
         db.query(SyncJob)
-        .options(joinedload(SyncJob.media_asset))
+        .options(joinedload(SyncJob.media_asset), selectinload(SyncJob.render_costs))
         .order_by(desc(SyncJob.created_at))
         .limit(100)
         .all()
@@ -27,7 +27,7 @@ def list_jobs(db: Session = Depends(get_db)) -> list[SyncJob]:
 def get_job(job_id: UUID, db: Session = Depends(get_db)) -> SyncJob:
     job = (
         db.query(SyncJob)
-        .options(joinedload(SyncJob.media_asset))
+        .options(joinedload(SyncJob.media_asset), selectinload(SyncJob.render_costs))
         .filter(SyncJob.id == job_id)
         .one_or_none()
     )
@@ -40,7 +40,7 @@ def get_job(job_id: UUID, db: Session = Depends(get_db)) -> SyncJob:
 def retry_job(job_id: UUID, db: Session = Depends(get_db)) -> SyncJob:
     job = (
         db.query(SyncJob)
-        .options(joinedload(SyncJob.media_asset))
+        .options(joinedload(SyncJob.media_asset), selectinload(SyncJob.render_costs))
         .filter(SyncJob.id == job_id)
         .one_or_none()
     )

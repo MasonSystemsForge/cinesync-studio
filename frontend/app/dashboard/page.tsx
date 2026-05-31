@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { DashboardSummary, SyncJob, fetchJson, formatBytes } from "@/lib/api";
+import { DashboardStudioSummary, DashboardSummary, SyncJob, fetchJson, formatBytes } from "@/lib/api";
 
 const emptySummary: DashboardSummary = {
   total_jobs: 0,
@@ -17,14 +17,32 @@ const emptySummary: DashboardSummary = {
 
 const pipelineSteps = ["Brief", "Prompt", "Avatar", "Voice", "Render", "Review"];
 
-function estimatedCost(job: SyncJob): string {
-  const mb = Math.max(1, job.media_asset.size_bytes / 1024 / 1024);
-  const cost = 0.42 + mb * 0.018 + job.progress * 0.003;
-  return `$${cost.toFixed(2)}`;
+const emptyStudioSummary: DashboardStudioSummary = {
+  total_projects: 0,
+  total_jobs: 0,
+  active_jobs: 0,
+  latest_cost_usd: 0,
+  avg_render_time_seconds: null,
+  success_rate: 1,
+  credits_remaining: 10000,
+  credit_balance_usd: 250,
+  budget_used_percent: 0
+};
+
+function formatCurrency(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return "--";
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}m ${remainder}s`;
 }
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [studioSummary, setStudioSummary] = useState<DashboardStudioSummary>(emptyStudioSummary);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +51,14 @@ export default function DashboardPage() {
 
     async function loadDashboard() {
       try {
-        const [nextSummary, nextJobs] = await Promise.all([
+        const [nextSummary, nextStudioSummary, nextJobs] = await Promise.all([
           fetchJson<DashboardSummary>("/dashboard/summary", { cache: "no-store" }),
+          fetchJson<DashboardStudioSummary>("/dashboard/studio", { cache: "no-store" }),
           fetchJson<SyncJob[]>("/jobs", { cache: "no-store" })
         ]);
         if (!cancelled) {
           setSummary(nextSummary);
+          setStudioSummary(nextStudioSummary);
           setJobs(nextJobs);
           setError(null);
         }
@@ -59,18 +79,14 @@ export default function DashboardPage() {
 
   const latestJob = jobs[0];
   const editorHref = latestJob?.project_id ? `/projects/${latestJob.project_id}` : "/upload";
-  const successRate = useMemo(() => {
-    if (summary.total_jobs === 0) return "100%";
-    return `${Math.round((summary.completed / summary.total_jobs) * 100)}%`;
-  }, [summary]);
-  const latestCost = latestJob ? estimatedCost(latestJob) : "$0.00";
-  const avgRenderTime = summary.completed > 0 ? "2m 48s" : "--";
+  const latestCost = formatCurrency(studioSummary.latest_cost_usd);
+  const avgRenderTime = formatDuration(studioSummary.avg_render_time_seconds);
 
   const stats = [
-    { label: "Total Jobs", value: summary.total_jobs.toString(), meta: `${summary.processing} active` },
-    { label: "Latest Cost", value: latestCost, meta: "Estimated render spend" },
-    { label: "Avg Render Time", value: avgRenderTime, meta: "Last completed jobs" },
-    { label: "Success Rate", value: successRate, meta: `${summary.failed} failed` }
+    { label: "Total Jobs", value: studioSummary.total_jobs.toString(), meta: `${studioSummary.active_jobs} active` },
+    { label: "Latest Cost", value: latestCost, meta: "Last recorded render" },
+    { label: "Avg Render Time", value: avgRenderTime, meta: "Completed render jobs" },
+    { label: "Success Rate", value: `${Math.round(studioSummary.success_rate * 100)}%`, meta: `${summary.failed} failed` }
   ];
 
   return (
@@ -162,7 +178,7 @@ export default function DashboardPage() {
                       <small>{job.source_language} to {job.target_language} - {formatBytes(job.media_asset.size_bytes)}</small>
                     </span>
                     <StatusBadge status={job.status} />
-                    <span>{estimatedCost(job)}</span>
+                    <span>{job.latest_cost_usd === null ? "Pending" : formatCurrency(job.latest_cost_usd)}</span>
                     <span>{new Date(job.created_at).toLocaleDateString()}</span>
                     <span><ProgressBar value={job.progress} /></span>
                     <Link href={href} className="table-action">Open</Link>
@@ -180,12 +196,12 @@ export default function DashboardPage() {
           <h2>Credits summary</h2>
           <div className="credit-meter">
             <div><span /></div>
-            <strong>8,420 credits</strong>
-            <small>Renews on the first of next month</small>
+            <strong>{Math.round(studioSummary.credits_remaining).toLocaleString()} credits</strong>
+            <small>{formatCurrency(studioSummary.credit_balance_usd)} balance remaining</small>
           </div>
           <div className="pricing-line"><span>Plan</span><strong>Studio Lite</strong></div>
           <div className="pricing-line"><span>Latest cost</span><strong>{latestCost}</strong></div>
-          <div className="pricing-line"><span>Budget used</span><strong>41%</strong></div>
+          <div className="pricing-line"><span>Budget used</span><strong>{Math.round(studioSummary.budget_used_percent)}%</strong></div>
           <Link href="#pricing" className="button button-full">Buy Credits</Link>
         </section>
 

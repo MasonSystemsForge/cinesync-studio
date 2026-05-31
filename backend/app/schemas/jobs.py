@@ -12,6 +12,10 @@ class MediaAssetRead(BaseModel):
     original_filename: str
     content_type: str | None
     size_bytes: int
+    duration_ms: int | None
+    width: int | None
+    height: int | None
+    frame_rate: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -44,6 +48,8 @@ class JobRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
+    latest_cost_usd: float | None
+    latest_render_seconds: float | None
     media_asset: MediaAssetRead
 
     model_config = ConfigDict(from_attributes=True)
@@ -60,3 +66,15 @@ class DashboardSummary(BaseModel):
     processing: int
     completed: int
     failed: int
+
+
+class DashboardStudioSummary(BaseModel):
+    total_projects: int
+    total_jobs: int
+    active_jobs: int
+    latest_cost_usd: float
+    avg_render_time_seconds: float | None
+    success_rate: float
+    credits_remaining: float
+    credit_balance_usd: float
+    budget_used_percent: float

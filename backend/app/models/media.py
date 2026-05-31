@@ -15,6 +15,10 @@ class MediaAsset(Base):
     content_type: Mapped[str | None] = mapped_column(String(100))
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    frame_rate: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     jobs = relationship("SyncJob", back_populates="media_asset", cascade="all, delete-orphan")

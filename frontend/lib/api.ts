@@ -6,6 +6,10 @@ export type MediaAsset = {
   original_filename: string;
   content_type: string | null;
   size_bytes: number;
+  duration_ms: number | null;
+  width: number | null;
+  height: number | null;
+  frame_rate: string | null;
   created_at: string;
 };
 
@@ -24,6 +28,8 @@ export type SyncJob = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  latest_cost_usd: number | null;
+  latest_render_seconds: number | null;
   media_asset: MediaAsset;
 };
 
@@ -123,6 +129,18 @@ export type UploadResponse = {
     created_at: string;
     updated_at: string;
   };
+};
+
+export type DashboardStudioSummary = {
+  total_projects: number;
+  total_jobs: number;
+  active_jobs: number;
+  latest_cost_usd: number;
+  avg_render_time_seconds: number | null;
+  success_rate: number;
+  credits_remaining: number;
+  credit_balance_usd: number;
+  budget_used_percent: number;
 };
 
 export type DashboardSummary = {
