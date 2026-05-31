@@ -15,24 +15,34 @@ const emptySummary: DashboardSummary = {
   failed: 0
 };
 
-const models = [
-  { name: "CineSync v1", tag: "Localization", text: "Balanced transcript, translation, and render metadata pipeline." },
-  { name: "Trailer Boost", tag: "Creative", text: "Sharper pacing language for launch cuts and teasers." },
-  { name: "Lecture Clean", tag: "Education", text: "Readable timing and glossary-safe adaptation." },
-  { name: "Compliance Pass", tag: "Review", text: "Enterprise QA preset for regulated video workflows." }
+const sourceAssets = [
+  { name: "launch_master.mov", type: "Source clip", duration: "00:45", ratio: "16:9" },
+  { name: "brand_terms.csv", type: "Glossary", duration: "142 terms", ratio: "Locked" },
+  { name: "speaker_ref.wav", type: "Voice ref", duration: "00:18", ratio: "Clean" },
+  { name: "safe_zones.png", type: "Overlay", duration: "OTT", ratio: "16:9" }
 ];
 
-const assets = [
-  { title: "Hero trailer source", meta: "16:9 - 00:45 - MOV" },
-  { title: "Spanish launch brief", meta: "Glossary - Brand terms" },
-  { title: "Caption safe zones", meta: "Preset - Social + OTT" }
+const sceneStrips = [
+  { label: "Hook", time: "00:00", status: "Approved", width: "18%" },
+  { label: "Problem", time: "00:08", status: "Draft", width: "22%" },
+  { label: "Product", time: "00:18", status: "Generating", width: "26%" },
+  { label: "CTA", time: "00:34", status: "Queued", width: "20%" },
+  { label: "End card", time: "00:41", status: "Queued", width: "14%" }
 ];
 
-const generations = [
-  { title: "Localized product reveal", meta: "ES subtitles - 1080p" },
-  { title: "Training module draft", meta: "FR transcript - QA pending" },
-  { title: "Social teaser batch", meta: "DE copy pass - 9:16" },
-  { title: "Executive recap", meta: "JA adaptation - Rendered" }
+const subtitleRows = [
+  { start: "00:03.12", end: "00:06.40", source: "Meet the workflow that keeps global launches moving.", target: "Presenta el flujo que mantiene los lanzamientos globales en marcha." },
+  { start: "00:12.08", end: "00:16.72", source: "Generate localized edits without rebuilding your production stack.", target: "Genera versiones localizadas sin reconstruir tu stack de produccion." },
+  { start: "00:27.10", end: "00:31.90", source: "Review, approve, and export every variant from one place.", target: "Revisa, aprueba y exporta cada variante desde un solo lugar." }
+];
+
+const inspectorSettings = [
+  ["Model", "CineSync v1 Enterprise"],
+  ["Locale", "Spanish - LATAM"],
+  ["Aspect", "16:9 primary, 9:16 safe"],
+  ["Caption style", "Premium lower third"],
+  ["Voice", "Neutral brand narrator"],
+  ["Review policy", "Legal + owner approval"]
 ];
 
 export default function DashboardPage() {
@@ -71,175 +81,266 @@ export default function DashboardPage() {
 
   const stats = useMemo(
     () => [
-      ["Total jobs", summary.total_jobs, "+12.4% throughput"],
-      ["Queued", summary.queued, "SLA monitored"],
-      ["Rendering", summary.processing, "Celery active"],
-      ["Completed", summary.completed, "Ready for review"],
-      ["Failed", summary.failed, "Needs triage"]
+      ["Active jobs", summary.queued + summary.processing],
+      ["Completed", summary.completed],
+      ["Failed", summary.failed],
+      ["Total", summary.total_jobs]
     ] as const,
     [summary]
   );
 
   return (
-    <section className="page-stack">
-      <div className="hero-console">
-        <div className="command-card">
-          <div>
-            <span className="eyebrow">Generation command center</span>
-            <h2 className="hero-title">Produce localized video variants with operator-grade control.</h2>
-            <p className="hero-copy">
-              Brief the pipeline, select a model preset, queue media, and monitor each job through transcription,
-              translation, and FFmpeg-ready render handoff.
-            </p>
-          </div>
-
-          <div className="prompt-composer">
-            <textarea defaultValue="Create a Spanish launch trailer cut with concise subtitles, preserve product names, and keep a cinematic high-energy tone." />
-            <div className="composer-footer">
-              <div className="segmented" aria-label="Generation mode">
-                <span className="active">Text + media</span>
-                <span>Subtitle pass</span>
-                <span>Dubbing brief</span>
-              </div>
-              <Link href="/upload" className="button">
-                Generate video
-              </Link>
-            </div>
-          </div>
-
-          <div className="settings-grid">
-            {[
-              ["Aspect", "16:9"],
-              ["Duration", "45 sec"],
-              ["Resolution", "1080p"],
-              ["Safety", "Brand locked"]
-            ].map(([label, value], index) => (
-              <div className={`setting-card ${index === 0 ? "active" : ""}`} key={label}>
-                <span className="muted">{label}</span>
-                <h3>{value}</h3>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="preview-monitor">
-          <div className="monitor-toolbar">
-            <span className="eyebrow">Live preview</span>
-            <span className="chip">Safe frame on</span>
-          </div>
-          <div className="monitor-stage">
-            <div className="monitor-toolbar">
-              <span className="chip">Scene 03</span>
-              <span className="chip">Draft render</span>
-            </div>
-            <div className="monitor-window">
-              <span className="play-button">Play</span>
-            </div>
-            <div className="timeline-scrub">
-              <span>00:18</span>
-              <div className="scrub-line"><span /></div>
-              <span>00:45</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {error ? <div className="error">Backend unavailable: {error}</div> : null}
-
-      <div className="stats-grid">
-        {stats.map(([label, value, delta]) => (
-          <div className="stat-card" key={label}>
-            <span className="muted">{label}</span>
-            <span className="stat-value">{value}</span>
-            <span className="stat-delta">{delta}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="eyebrow">Model presets</span>
-            <h2>Production controls</h2>
-          </div>
-          <div className="segmented">
-            <span className="active">Recommended</span>
-            <span>Fast</span>
-            <span>Quality</span>
-          </div>
-        </div>
-        <div className="model-grid">
-          {models.map((model, index) => (
-            <div className={`model-card ${index === 0 ? "active" : ""}`} key={model.name}>
-              <span className="card-kicker">{model.tag}</span>
-              <h3>{model.name}</h3>
-              <p>{model.text}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="ops-grid">
-        <div className="panel">
-          <div className="panel-header">
+    <section className="page-stack editor-page">
+      <div className="editor-shell">
+        <aside className="asset-rail">
+          <div className="panel-header compact">
             <div>
-              <span className="eyebrow">Render operations</span>
-              <h2>Live job queue</h2>
+              <span className="eyebrow">Source bin</span>
+              <h2>Project assets</h2>
             </div>
-            <Link href="/upload" className="button button-secondary">New job</Link>
+            <Link href="/upload" className="button button-small button-secondary">Import</Link>
           </div>
-          <div className="jobs-list">
-            {jobs.length === 0 ? (
-              <p className="muted">No jobs yet. Upload a file to kick off the first localization run.</p>
-            ) : (
-              jobs.map((job) => (
-                <Link href={`/jobs/${job.id}`} className="job-card" key={job.id}>
-                  <div>
-                    <div className="job-title">{job.media_asset.original_filename}</div>
-                    <div className="muted">
-                      {job.source_language} to {job.target_language} - {formatBytes(job.media_asset.size_bytes)}
-                    </div>
-                  </div>
-                  <StatusBadge status={job.status} />
-                  <ProgressBar value={job.progress} />
-                  <strong>{job.progress}%</strong>
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
 
-        <div className="panel">
-          <span className="eyebrow">Source kit</span>
-          <h2>Workspace assets</h2>
-          <div className="asset-grid" style={{ gridTemplateColumns: "1fr" }}>
-            {assets.map((asset) => (
-              <Link href="/upload" className="asset-card" key={asset.title}>
-                <div className="asset-thumb" />
-                <h3>{asset.title}</h3>
-                <p>{asset.meta}</p>
-              </Link>
+          <div className="asset-bin-list">
+            {sourceAssets.map((asset, index) => (
+              <button className={`asset-bin-item ${index === 0 ? "active" : ""}`} key={asset.name} type="button">
+                <span className="asset-thumb-mini" />
+                <span>
+                  <strong>{asset.name}</strong>
+                  <small>{asset.type} - {asset.duration} - {asset.ratio}</small>
+                </span>
+              </button>
             ))}
           </div>
-        </div>
+
+          <div className="rail-section">
+            <span className="eyebrow">Queue health</span>
+            <div className="mini-stat-grid">
+              {stats.map(([label, value]) => (
+                <div className="mini-stat" key={label}>
+                  <strong>{value}</strong>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rail-section">
+            <span className="eyebrow">Review gates</span>
+            {[
+              ["Brand glossary", "Locked"],
+              ["Subtitle QA", "Required"],
+              ["Legal approval", "Before export"]
+            ].map(([label, value]) => (
+              <div className="review-row" key={label}>
+                <strong>{label}</strong>
+                <span className="chip">{value}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <main className="editor-stage-column">
+          <div className="editor-toolbar panel">
+            <div>
+              <span className="eyebrow">Video generation workspace</span>
+              <h1>Launch trailer localization</h1>
+            </div>
+            <div className="inline-actions">
+              <span className="chip">Autosaved 12 sec ago</span>
+              <span className="chip">Draft v04</span>
+              <Link href="/upload" className="button">Generate variant</Link>
+            </div>
+          </div>
+
+          {error ? <div className="error">Backend unavailable: {error}</div> : null}
+
+          <div className="video-workbench">
+            <div className="video-canvas-shell">
+              <div className="video-canvas-toolbar">
+                <span className="chip">16:9 master</span>
+                <span className="chip">Safe captions</span>
+                <span className="chip">ES-LATAM</span>
+              </div>
+              <div className="video-canvas">
+                <div className="safe-frame" />
+                <div className="video-subtitle-overlay">
+                  Presenta el flujo que mantiene los lanzamientos globales en marcha.
+                </div>
+                <span className="play-button">Play</span>
+              </div>
+              <div className="transport-bar">
+                <span>00:18.12</span>
+                <div className="scrub-line"><span /></div>
+                <span>00:45.00</span>
+              </div>
+            </div>
+
+            <div className="prompt-stack">
+              <div className="prompt-composer dense">
+                <div className="panel-header compact">
+                  <div>
+                    <span className="eyebrow">Prompt</span>
+                    <h2>Generation brief</h2>
+                  </div>
+                  <div className="segmented">
+                    <span className="active">Text + clip</span>
+                    <span>Captions</span>
+                    <span>Voice</span>
+                  </div>
+                </div>
+                <textarea defaultValue="Generate a Spanish LATAM localized trailer. Keep the energetic product-launch pacing, preserve product names, tighten captions for mobile safe areas, and produce a review-ready render artifact." />
+                <div className="composer-footer">
+                  <div className="chip-row">
+                    <span className="chip">Brand-safe</span>
+                    <span className="chip">Glossary locked</span>
+                    <span className="chip">Human review</span>
+                  </div>
+                  <button type="button">Run generation</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="timeline-editor panel">
+            <div className="panel-header compact">
+              <div>
+                <span className="eyebrow">Timeline</span>
+                <h2>Scenes, subtitles, and render states</h2>
+              </div>
+              <span className="chip">5 scenes - 3 subtitle rows</span>
+            </div>
+
+            <div className="scene-track">
+              {sceneStrips.map((scene) => (
+                <div className="scene-clip" key={scene.label} style={{ width: scene.width }}>
+                  <strong>{scene.label}</strong>
+                  <span>{scene.time}</span>
+                  <small>{scene.status}</small>
+                </div>
+              ))}
+            </div>
+
+            <div className="track-lane video-lane">
+              <span className="track-label">Video</span>
+              <div className="track-block long">launch_master.mov</div>
+            </div>
+            <div className="track-lane caption-lane">
+              <span className="track-label">Captions</span>
+              <div className="track-block caption" style={{ width: "30%" }}>Subtitle 01</div>
+              <div className="track-block caption" style={{ width: "36%" }}>Subtitle 02</div>
+              <div className="track-block caption" style={{ width: "25%" }}>Subtitle 03</div>
+            </div>
+            <div className="track-lane audio-lane">
+              <span className="track-label">Audio</span>
+              <div className="waveform">
+                {Array.from({ length: 46 }).map((_, index) => (
+                  <span key={index} style={{ height: `${18 + ((index * 13) % 42)}px` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="subtitle-table panel">
+            <div className="panel-header compact">
+              <div>
+                <span className="eyebrow">Subtitle editor</span>
+                <h2>Translation rows</h2>
+              </div>
+              <span className="chip">Inline QA</span>
+            </div>
+            <div className="subtitle-grid">
+              {subtitleRows.map((row) => (
+                <div className="subtitle-row" key={row.start}>
+                  <span className="timecode">{row.start} - {row.end}</span>
+                  <p>{row.source}</p>
+                  <strong>{row.target}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        <aside className="inspector-rail">
+          <div className="inspector-card">
+            <span className="eyebrow">Inspector</span>
+            <h2>Output settings</h2>
+            <div className="timeline">
+              {inspectorSettings.map(([label, value]) => (
+                <div className="timeline-item" key={label}>
+                  <strong>{label}</strong>
+                  <span className="muted">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="inspector-card">
+            <span className="eyebrow">Variants</span>
+            <h2>Render candidates</h2>
+            <div className="variant-list">
+              {[
+                ["v04", "Balanced", "Active"],
+                ["v03", "Faster captions", "Approved"],
+                ["v02", "Formal tone", "Archived"]
+              ].map(([version, label, status]) => (
+                <div className="variant-row" key={version}>
+                  <span>{version}</span>
+                  <strong>{label}</strong>
+                  <small>{status}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="inspector-card">
+            <span className="eyebrow">Provider log</span>
+            <div className="log-console compact-log">
+              [00:18] transcript synced\n
+              [00:22] target copy generated\n
+              [00:27] subtitle QA pending\n
+              [00:31] render slot reserved
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <div className="panel">
+      <div className="panel render-queue-panel">
         <div className="panel-header">
           <div>
-            <span className="eyebrow">Generation board</span>
-            <h2>Recent video variants</h2>
+            <span className="eyebrow">Operations</span>
+            <h2>Render queue</h2>
           </div>
-          <span className="chip">Enterprise review mode</span>
+          <div className="inline-actions">
+            <span className="chip">Polling every 5 sec</span>
+            <Link href="/upload" className="button button-secondary">New upload</Link>
+          </div>
         </div>
-        <div className="generation-grid">
-          {generations.map((item) => (
-            <div className="generation-card" key={item.title}>
-              <div className="generation-thumb" />
-              <h3>{item.title}</h3>
-              <p>{item.meta}</p>
-            </div>
-          ))}
+
+        <div className="render-queue-table">
+          <div className="queue-row queue-head">
+            <span>Asset</span>
+            <span>Status</span>
+            <span>Stage</span>
+            <span>Progress</span>
+            <span>Updated</span>
+          </div>
+          {jobs.length === 0 ? (
+            <div className="queue-empty">No backend jobs yet. Queue a source upload to populate live operations.</div>
+          ) : (
+            jobs.map((job) => (
+              <Link href={`/jobs/${job.id}`} className="queue-row" key={job.id}>
+                <span>
+                  <strong>{job.media_asset.original_filename}</strong>
+                  <small>{formatBytes(job.media_asset.size_bytes)}</small>
+                </span>
+                <StatusBadge status={job.status} />
+                <span className="chip">{job.stage}</span>
+                <span><ProgressBar value={job.progress} /></span>
+                <span className="muted">{new Date(job.updated_at).toLocaleTimeString()}</span>
+              </Link>
+            ))
+          )}
         </div>
       </div>
     </section>
