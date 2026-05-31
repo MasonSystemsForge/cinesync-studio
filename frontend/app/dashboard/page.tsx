@@ -15,35 +15,13 @@ const emptySummary: DashboardSummary = {
   failed: 0
 };
 
-const sourceAssets = [
-  { name: "launch_master.mov", type: "Source clip", duration: "00:45", ratio: "16:9" },
-  { name: "brand_terms.csv", type: "Glossary", duration: "142 terms", ratio: "Locked" },
-  { name: "speaker_ref.wav", type: "Voice ref", duration: "00:18", ratio: "Clean" },
-  { name: "safe_zones.png", type: "Overlay", duration: "OTT", ratio: "16:9" }
-];
+const pipelineSteps = ["Brief", "Prompt", "Avatar", "Voice", "Render", "Review"];
 
-const sceneStrips = [
-  { label: "Hook", time: "00:00", status: "Approved", width: "18%" },
-  { label: "Problem", time: "00:08", status: "Draft", width: "22%" },
-  { label: "Product", time: "00:18", status: "Generating", width: "26%" },
-  { label: "CTA", time: "00:34", status: "Queued", width: "20%" },
-  { label: "End card", time: "00:41", status: "Queued", width: "14%" }
-];
-
-const subtitleRows = [
-  { start: "00:03.12", end: "00:06.40", source: "Meet the workflow that keeps global launches moving.", target: "Presenta el flujo que mantiene los lanzamientos globales en marcha." },
-  { start: "00:12.08", end: "00:16.72", source: "Generate localized edits without rebuilding your production stack.", target: "Genera versiones localizadas sin reconstruir tu stack de produccion." },
-  { start: "00:27.10", end: "00:31.90", source: "Review, approve, and export every variant from one place.", target: "Revisa, aprueba y exporta cada variante desde un solo lugar." }
-];
-
-const inspectorSettings = [
-  ["Model", "CineSync v1 Enterprise"],
-  ["Locale", "Spanish - LATAM"],
-  ["Aspect", "16:9 primary, 9:16 safe"],
-  ["Caption style", "Premium lower third"],
-  ["Voice", "Neutral brand narrator"],
-  ["Review policy", "Legal + owner approval"]
-];
+function estimatedCost(job: SyncJob): string {
+  const mb = Math.max(1, job.media_asset.size_bytes / 1024 / 1024);
+  const cost = 0.42 + mb * 0.018 + job.progress * 0.003;
+  return `$${cost.toFixed(2)}`;
+}
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
@@ -79,270 +57,155 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const stats = useMemo(
-    () => [
-      ["Active jobs", summary.queued + summary.processing],
-      ["Completed", summary.completed],
-      ["Failed", summary.failed],
-      ["Total", summary.total_jobs]
-    ] as const,
-    [summary]
-  );
+  const latestJob = jobs[0];
+  const editorHref = latestJob?.project_id ? `/projects/${latestJob.project_id}` : "/upload";
+  const successRate = useMemo(() => {
+    if (summary.total_jobs === 0) return "100%";
+    return `${Math.round((summary.completed / summary.total_jobs) * 100)}%`;
+  }, [summary]);
+  const latestCost = latestJob ? estimatedCost(latestJob) : "$0.00";
+  const avgRenderTime = summary.completed > 0 ? "2m 48s" : "--";
+
+  const stats = [
+    { label: "Total Jobs", value: summary.total_jobs.toString(), meta: `${summary.processing} active` },
+    { label: "Latest Cost", value: latestCost, meta: "Estimated render spend" },
+    { label: "Avg Render Time", value: avgRenderTime, meta: "Last completed jobs" },
+    { label: "Success Rate", value: successRate, meta: `${summary.failed} failed` }
+  ];
 
   return (
-    <section className="page-stack editor-page">
-      <div className="editor-shell">
-        <aside className="asset-rail">
-          <div className="panel-header compact">
-            <div>
-              <span className="eyebrow">Source bin</span>
-              <h2>Project assets</h2>
-            </div>
-            <Link href="/upload" className="button button-small button-secondary">Import</Link>
-          </div>
-
-          <div className="asset-bin-list">
-            {sourceAssets.map((asset, index) => (
-              <button className={`asset-bin-item ${index === 0 ? "active" : ""}`} key={asset.name} type="button">
-                <span className="asset-thumb-mini" />
-                <span>
-                  <strong>{asset.name}</strong>
-                  <small>{asset.type} - {asset.duration} - {asset.ratio}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="rail-section">
-            <span className="eyebrow">Queue health</span>
-            <div className="mini-stat-grid">
-              {stats.map(([label, value]) => (
-                <div className="mini-stat" key={label}>
-                  <strong>{value}</strong>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rail-section">
-            <span className="eyebrow">Review gates</span>
-            {[
-              ["Brand glossary", "Locked"],
-              ["Subtitle QA", "Required"],
-              ["Legal approval", "Before export"]
-            ].map(([label, value]) => (
-              <div className="review-row" key={label}>
-                <strong>{label}</strong>
-                <span className="chip">{value}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        <main className="editor-stage-column">
-          <div className="editor-toolbar panel">
-            <div>
-              <span className="eyebrow">Video generation workspace</span>
-              <h1>Launch trailer localization</h1>
-            </div>
-            <div className="inline-actions">
-              <span className="chip">Autosaved 12 sec ago</span>
-              <span className="chip">Draft v04</span>
-              <Link href="/upload" className="button">Generate variant</Link>
-            </div>
-          </div>
-
-          {error ? <div className="error">Backend unavailable: {error}</div> : null}
-
-          <div className="video-workbench">
-            <div className="video-canvas-shell">
-              <div className="video-canvas-toolbar">
-                <span className="chip">16:9 master</span>
-                <span className="chip">Safe captions</span>
-                <span className="chip">ES-LATAM</span>
-              </div>
-              <div className="video-canvas">
-                <div className="safe-frame" />
-                <div className="video-subtitle-overlay">
-                  Presenta el flujo que mantiene los lanzamientos globales en marcha.
-                </div>
-                <span className="play-button">Play</span>
-              </div>
-              <div className="transport-bar">
-                <span>00:18.12</span>
-                <div className="scrub-line"><span /></div>
-                <span>00:45.00</span>
-              </div>
-            </div>
-
-            <div className="prompt-stack">
-              <div className="prompt-composer dense">
-                <div className="panel-header compact">
-                  <div>
-                    <span className="eyebrow">Prompt</span>
-                    <h2>Generation brief</h2>
-                  </div>
-                  <div className="segmented">
-                    <span className="active">Text + clip</span>
-                    <span>Captions</span>
-                    <span>Voice</span>
-                  </div>
-                </div>
-                <textarea defaultValue="Generate a Spanish LATAM localized trailer. Keep the energetic product-launch pacing, preserve product names, tighten captions for mobile safe areas, and produce a review-ready render artifact." />
-                <div className="composer-footer">
-                  <div className="chip-row">
-                    <span className="chip">Brand-safe</span>
-                    <span className="chip">Glossary locked</span>
-                    <span className="chip">Human review</span>
-                  </div>
-                  <button type="button">Run generation</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="timeline-editor panel">
-            <div className="panel-header compact">
-              <div>
-                <span className="eyebrow">Timeline</span>
-                <h2>Scenes, subtitles, and render states</h2>
-              </div>
-              <span className="chip">5 scenes - 3 subtitle rows</span>
-            </div>
-
-            <div className="scene-track">
-              {sceneStrips.map((scene) => (
-                <div className="scene-clip" key={scene.label} style={{ width: scene.width }}>
-                  <strong>{scene.label}</strong>
-                  <span>{scene.time}</span>
-                  <small>{scene.status}</small>
-                </div>
-              ))}
-            </div>
-
-            <div className="track-lane video-lane">
-              <span className="track-label">Video</span>
-              <div className="track-block long">launch_master.mov</div>
-            </div>
-            <div className="track-lane caption-lane">
-              <span className="track-label">Captions</span>
-              <div className="track-block caption" style={{ width: "30%" }}>Subtitle 01</div>
-              <div className="track-block caption" style={{ width: "36%" }}>Subtitle 02</div>
-              <div className="track-block caption" style={{ width: "25%" }}>Subtitle 03</div>
-            </div>
-            <div className="track-lane audio-lane">
-              <span className="track-label">Audio</span>
-              <div className="waveform">
-                {Array.from({ length: 46 }).map((_, index) => (
-                  <span key={index} style={{ height: `${18 + ((index * 13) % 42)}px` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="subtitle-table panel">
-            <div className="panel-header compact">
-              <div>
-                <span className="eyebrow">Subtitle editor</span>
-                <h2>Translation rows</h2>
-              </div>
-              <span className="chip">Inline QA</span>
-            </div>
-            <div className="subtitle-grid">
-              {subtitleRows.map((row) => (
-                <div className="subtitle-row" key={row.start}>
-                  <span className="timecode">{row.start} - {row.end}</span>
-                  <p>{row.source}</p>
-                  <strong>{row.target}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        </main>
-
-        <aside className="inspector-rail">
-          <div className="inspector-card">
-            <span className="eyebrow">Inspector</span>
-            <h2>Output settings</h2>
-            <div className="timeline">
-              {inspectorSettings.map(([label, value]) => (
-                <div className="timeline-item" key={label}>
-                  <strong>{label}</strong>
-                  <span className="muted">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="inspector-card">
-            <span className="eyebrow">Variants</span>
-            <h2>Render candidates</h2>
-            <div className="variant-list">
-              {[
-                ["v04", "Balanced", "Active"],
-                ["v03", "Faster captions", "Approved"],
-                ["v02", "Formal tone", "Archived"]
-              ].map(([version, label, status]) => (
-                <div className="variant-row" key={version}>
-                  <span>{version}</span>
-                  <strong>{label}</strong>
-                  <small>{status}</small>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="inspector-card">
-            <span className="eyebrow">Provider log</span>
-            <div className="log-console compact-log">
-              [00:18] transcript synced\n
-              [00:22] target copy generated\n
-              [00:27] subtitle QA pending\n
-              [00:31] render slot reserved
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <div className="panel render-queue-panel">
-        <div className="panel-header">
+    <section className="dashboard-grid">
+      <div className="dashboard-main">
+        <section className="hero-card clean-hero">
           <div>
-            <span className="eyebrow">Operations</span>
-            <h2>Render queue</h2>
+            <span className="eyebrow">AI video generation</span>
+            <h2>Create your next synced AI video</h2>
+            <p>
+              Turn a brief into localized video variants with prompt control, avatar and voice direction,
+              render tracking, subtitle review, and export-ready project workflows.
+            </p>
+            <div className="hero-actions">
+              <Link href="/upload" className="button">New Render Job</Link>
+              <Link href={editorHref} className="button button-secondary">Open Editor</Link>
+            </div>
           </div>
-          <div className="inline-actions">
-            <span className="chip">Polling every 5 sec</span>
-            <Link href="/upload" className="button button-secondary">New upload</Link>
+          <div className="hero-preview-card">
+            <div className="preview-toolbar">
+              <span>Studio preview</span>
+              <strong>16:9</strong>
+            </div>
+            <div className="mini-video-frame">
+              <span className="play-dot">Play</span>
+              <div className="caption-chip">Synced subtitle preview</div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="render-queue-table">
-          <div className="queue-row queue-head">
-            <span>Asset</span>
-            <span>Status</span>
-            <span>Stage</span>
-            <span>Progress</span>
-            <span>Updated</span>
+        {error ? <div className="error">Backend unavailable: {error}</div> : null}
+
+        <section className="stats-row" aria-label="Studio stats">
+          {stats.map((stat) => (
+            <div className="stat-card" key={stat.label}>
+              <span>{stat.label}</span>
+              <strong>{stat.value}</strong>
+              <small>{stat.meta}</small>
+            </div>
+          ))}
+        </section>
+
+        <section className="panel pipeline-panel" id="pipeline">
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">Pipeline</span>
+              <h2>Brief to review workflow</h2>
+            </div>
+            <span className="chip lime-chip">Live mock providers</span>
           </div>
-          {jobs.length === 0 ? (
-            <div className="queue-empty">No backend jobs yet. Queue a source upload to populate live operations.</div>
-          ) : (
-            jobs.map((job) => (
-              <Link href={job.project_id ? `/projects/${job.project_id}` : `/jobs/${job.id}`} className="queue-row" key={job.id}>
-                <span>
-                  <strong>{job.media_asset.original_filename}</strong>
-                  <small>{formatBytes(job.media_asset.size_bytes)}</small>
-                </span>
-                <StatusBadge status={job.status} />
-                <span className="chip">{job.stage}</span>
-                <span><ProgressBar value={job.progress} /></span>
-                <span className="muted">{new Date(job.updated_at).toLocaleTimeString()}</span>
-              </Link>
-            ))
-          )}
-        </div>
+          <div className="pipeline-steps">
+            {pipelineSteps.map((step, index) => (
+              <div className={`pipeline-step ${index <= 2 ? "active" : ""}`} key={step}>
+                <span>{index + 1}</span>
+                <strong>{step}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel jobs-panel" id="jobs">
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">Recent Jobs</span>
+              <h2>Render activity</h2>
+            </div>
+            <Link href="/upload" className="button button-secondary button-small">Create job</Link>
+          </div>
+
+          <div className="jobs-table">
+            <div className="jobs-row jobs-head">
+              <span>Job</span>
+              <span>Status</span>
+              <span>Cost</span>
+              <span>Date</span>
+              <span>Progress</span>
+              <span>Action</span>
+            </div>
+            {jobs.length === 0 ? (
+              <div className="empty-state">No render jobs yet. Create your first AI video render to populate this table.</div>
+            ) : (
+              jobs.slice(0, 8).map((job) => {
+                const href = job.project_id ? `/projects/${job.project_id}` : `/jobs/${job.id}`;
+                return (
+                  <div className="jobs-row" key={job.id}>
+                    <span className="job-name">
+                      <strong>{job.media_asset.original_filename}</strong>
+                      <small>{job.source_language} to {job.target_language} - {formatBytes(job.media_asset.size_bytes)}</small>
+                    </span>
+                    <StatusBadge status={job.status} />
+                    <span>{estimatedCost(job)}</span>
+                    <span>{new Date(job.created_at).toLocaleDateString()}</span>
+                    <span><ProgressBar value={job.progress} /></span>
+                    <Link href={href} className="table-action">Open</Link>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
       </div>
+
+      <aside className="right-panel">
+        <section className="panel pricing-card" id="pricing">
+          <span className="eyebrow">Pricing</span>
+          <h2>Credits summary</h2>
+          <div className="credit-meter">
+            <div><span /></div>
+            <strong>8,420 credits</strong>
+            <small>Renews on the first of next month</small>
+          </div>
+          <div className="pricing-line"><span>Plan</span><strong>Studio Lite</strong></div>
+          <div className="pricing-line"><span>Latest cost</span><strong>{latestCost}</strong></div>
+          <div className="pricing-line"><span>Budget used</span><strong>41%</strong></div>
+          <Link href="/upload" className="button button-full">New Render Job</Link>
+        </section>
+
+        <section className="panel tips-card" id="settings">
+          <span className="eyebrow">Quick tips</span>
+          <h2>Better renders</h2>
+          <ul>
+            <li>Keep prompts specific: format, scene, voice, and audience.</li>
+            <li>Upload clean source audio for stronger subtitle timing.</li>
+            <li>Use review gates before exporting localized variants.</li>
+          </ul>
+        </section>
+
+        <section className="panel balance-card">
+          <span className="eyebrow">Cost control</span>
+          <h2>Render estimate</h2>
+          <p>Short social cut: <strong>$0.84</strong></p>
+          <p>Launch trailer: <strong>$2.40</strong></p>
+          <p>Long-form module: <strong>$6.20</strong></p>
+        </section>
+      </aside>
     </section>
   );
 }
