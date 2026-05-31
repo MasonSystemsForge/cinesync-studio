@@ -11,6 +11,7 @@ export type MediaAsset = {
 
 export type SyncJob = {
   id: string;
+  project_id: string | null;
   source_language: string;
   target_language: string;
   status: JobStatus;
@@ -24,6 +25,104 @@ export type SyncJob = {
   updated_at: string;
   completed_at: string | null;
   media_asset: MediaAsset;
+};
+
+
+export type ProjectStatus = "draft" | "processing" | "review" | "approved" | "failed";
+export type SceneStatus = "queued" | "draft" | "generating" | "approved";
+export type ReviewStatus = "pending" | "approved" | "changes_requested";
+export type ExportStatus = "pending" | "rendering" | "ready" | "failed";
+
+export type ProjectScene = {
+  id: string;
+  title: string;
+  sort_order: number;
+  start_ms: number;
+  end_ms: number;
+  status: SceneStatus;
+  prompt: string | null;
+};
+
+export type SubtitleSegment = {
+  id: string;
+  scene_id: string | null;
+  sort_order: number;
+  start_ms: number;
+  end_ms: number;
+  source_text: string;
+  translated_text: string;
+  status: ReviewStatus;
+};
+
+export type RenderVariant = {
+  id: string;
+  job_id: string | null;
+  label: string;
+  status: ExportStatus;
+  render_path: string | null;
+  render_metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type PromptRun = {
+  id: string;
+  prompt: string;
+  mode: string;
+  model_name: string;
+  status: string;
+  created_at: string;
+};
+
+export type ReviewDecision = {
+  id: string;
+  reviewer: string;
+  status: ReviewStatus;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ProjectExport = {
+  id: string;
+  format: string;
+  status: ExportStatus;
+  output_path: string | null;
+  created_at: string;
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  brief: string | null;
+  source_language: string;
+  target_language: string;
+  status: ProjectStatus;
+  aspect_ratio: string;
+  resolution: string;
+  caption_style: string;
+  voice_profile: string;
+  created_at: string;
+  updated_at: string;
+  media_asset: MediaAsset | null;
+  jobs: SyncJob[];
+  scenes: ProjectScene[];
+  subtitles: SubtitleSegment[];
+  render_variants: RenderVariant[];
+  prompt_runs: PromptRun[];
+  review_decisions: ReviewDecision[];
+  exports: ProjectExport[];
+};
+
+export type UploadResponse = {
+  job: SyncJob;
+  project: {
+    id: string;
+    name: string;
+    status: ProjectStatus;
+    source_language: string;
+    target_language: string;
+    created_at: string;
+    updated_at: string;
+  };
 };
 
 export type DashboardSummary = {

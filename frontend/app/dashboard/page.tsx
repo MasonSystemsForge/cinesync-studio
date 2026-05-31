@@ -329,7 +329,7 @@ export default function DashboardPage() {
             <div className="queue-empty">No backend jobs yet. Queue a source upload to populate live operations.</div>
           ) : (
             jobs.map((job) => (
-              <Link href={`/jobs/${job.id}`} className="queue-row" key={job.id}>
+              <Link href={job.project_id ? `/projects/${job.project_id}` : `/jobs/${job.id}`} className="queue-row" key={job.id}>
                 <span>
                   <strong>{job.media_asset.original_filename}</strong>
                   <small>{formatBytes(job.media_asset.size_bytes)}</small>

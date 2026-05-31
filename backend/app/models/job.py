@@ -29,6 +29,7 @@ class SyncJob(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     media_asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_assets.id"), nullable=False, index=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
     source_language: Mapped[str] = mapped_column(String(32), default="auto")
     target_language: Mapped[str] = mapped_column(String(32), default="en")
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.queued, index=True)
@@ -47,3 +48,5 @@ class SyncJob(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     media_asset = relationship("MediaAsset", back_populates="jobs")
+    project = relationship("Project", back_populates="jobs")
+    render_variants = relationship("RenderVariant", back_populates="job")

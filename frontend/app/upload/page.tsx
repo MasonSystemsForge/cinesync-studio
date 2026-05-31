@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { API_BASE_URL, formatBytes } from "@/lib/api";
+import { API_BASE_URL, UploadResponse, formatBytes } from "@/lib/api";
 
 const settings = [
   ["Output", "1080p MP4"],
@@ -46,8 +46,8 @@ export default function UploadPage() {
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      const payload = (await response.json()) as { job: { id: string } };
-      router.push(`/jobs/${payload.job.id}`);
+      const payload = (await response.json()) as UploadResponse;
+      router.push(`/projects/${payload.project.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Upload failed");
     } finally {

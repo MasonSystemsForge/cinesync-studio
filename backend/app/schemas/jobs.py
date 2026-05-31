@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from app.models.job import JobStage, JobStatus
+from app.models.project import ProjectStatus
 
 
 class MediaAssetRead(BaseModel):
@@ -16,8 +17,21 @@ class MediaAssetRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ProjectBrief(BaseModel):
+    id: UUID
+    name: str
+    status: ProjectStatus
+    source_language: str
+    target_language: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class JobRead(BaseModel):
     id: UUID
+    project_id: UUID | None
     source_language: str
     target_language: str
     status: JobStatus
@@ -37,6 +51,7 @@ class JobRead(BaseModel):
 
 class UploadResponse(BaseModel):
     job: JobRead
+    project: ProjectBrief
 
 
 class DashboardSummary(BaseModel):
