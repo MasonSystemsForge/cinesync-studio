@@ -1,15 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Project, fetchJson, formatBytes } from "@/lib/api";
+import {
+  JobStatus,
+  Project,
+  ProjectScene,
+  ReviewStatus,
+  SceneStatus,
+  SubtitleSegment,
+  SyncJob,
+  fetchJson,
+  formatBytes,
+  sendJson
+} from "@/lib/api";
 
 type ProjectEditorClientProps = {
   projectId: string;
 };
+
+type ProjectDraft = {
+  name: string;
+  brief: string;
+  source_language: string;
+  target_language: string;
+  aspect_ratio: string;
+  resolution: string;
+  caption_style: string;
+  voice_profile: string;
+};
+
+type SceneDraft = {
+  title: string;
+  status: SceneStatus;
+  prompt: string;
+};
+
+type SubtitleDraft = {
+  source_text: string;
+  translated_text: string;
+  status: ReviewStatus;
+};
+
+const sceneStatuses: SceneStatus[] = ["queued", "draft", "generating", "approved"];
+const subtitleStatuses: ReviewStatus[] = ["pending", "approved", "changes_requested"];
+const retryableStatuses: JobStatus[] = ["completed", "failed"];
 
 function formatMs(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -23,18 +61,91 @@ function clipWidth(startMs: number, endMs: number, durationMs: number): string {
   return `${Math.max(10, ((endMs - startMs) / durationMs) * 100)}%`;
 }
 
+function projectToDraft(project: Project): ProjectDraft {
+  return {
+    name: project.name,
+    brief: project.brief ?? "",
+    source_language: project.source_language,
+    target_language: project.target_language,
+    aspect_ratio: project.aspect_ratio,
+    resolution: project.resolution,
+    caption_style: project.caption_style,
+    voice_profile: project.voice_profile
+  };
+}
+
+function sceneDraftsFromProject(project: Project): Record<string, SceneDraft> {
+  return Object.fromEntries(
+    project.scenes.map((scene) => [
+      scene.id,
+      {
+        title: scene.title,
+        status: scene.status,
+        prompt: scene.prompt ?? ""
+      }
+    ])
+  );
+}
+
+function subtitleDraftsFromProject(project: Project): Record<string, SubtitleDraft> {
+  return Object.fromEntries(
+    project.subtitles.map((subtitle) => [
+      subtitle.id,
+      {
+        source_text: subtitle.source_text,
+        translated_text: subtitle.translated_text,
+        status: subtitle.status
+      }
+    ])
+  );
+}
+
 export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
   const [project, setProject] = useState<Project | null>(null);
+  const [projectDraft, setProjectDraft] = useState<ProjectDraft | null>(null);
+  const [sceneDrafts, setSceneDrafts] = useState<Record<string, SceneDraft>>({});
+  const [subtitleDrafts, setSubtitleDrafts] = useState<Record<string, SubtitleDraft>>({});
+  const [promptDraft, setPromptDraft] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const hydrateDrafts = useCallback((nextProject: Project) => {
+    setProjectDraft(projectToDraft(nextProject));
+    setSceneDrafts(sceneDraftsFromProject(nextProject));
+    setSubtitleDrafts(subtitleDraftsFromProject(nextProject));
+    setPromptDraft(
+      nextProject.prompt_runs[0]?.prompt ?? nextProject.brief ?? "Generate a localized, review-ready video variant."
+    );
+    setReviewNotes(nextProject.review_decisions[0]?.notes ?? "");
+    setDraftProjectId(nextProject.id);
+  }, []);
+
+  const loadProject = useCallback(
+    async (options?: { refreshDrafts?: boolean }) => {
+      const nextProject = await fetchJson<Project>(`/projects/${projectId}`, { cache: "no-store" });
+      setProject(nextProject);
+      if (options?.refreshDrafts || draftProjectId !== nextProject.id) {
+        hydrateDrafts(nextProject);
+      }
+      return nextProject;
+    },
+    [draftProjectId, hydrateDrafts, projectId]
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadProject() {
+    async function pollProject() {
       try {
         const nextProject = await fetchJson<Project>(`/projects/${projectId}`, { cache: "no-store" });
         if (!cancelled) {
           setProject(nextProject);
+          if (draftProjectId !== nextProject.id) {
+            hydrateDrafts(nextProject);
+          }
           setError(null);
         }
       } catch (loadError) {
@@ -44,13 +155,118 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
       }
     }
 
-    loadProject();
-    const interval = window.setInterval(loadProject, 2500);
+    pollProject();
+    const interval = window.setInterval(pollProject, 3000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [projectId]);
+  }, [draftProjectId, hydrateDrafts, projectId]);
+
+  async function runAction(label: string, key: string, action: () => Promise<void>) {
+    setSavingKey(key);
+    setNotice(null);
+    setError(null);
+    try {
+      await action();
+      setNotice(label);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Action failed");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function saveProjectSettings() {
+    if (!projectDraft) return;
+    await runAction("Project settings saved", "project", async () => {
+      const nextProject = await sendJson<Project>(`/projects/${projectId}`, "PATCH", projectDraft);
+      setProject(nextProject);
+      hydrateDrafts(nextProject);
+    });
+  }
+
+  async function saveScene(scene: ProjectScene) {
+    const draft = sceneDrafts[scene.id];
+    if (!draft) return;
+    await runAction("Scene saved", `scene-${scene.id}`, async () => {
+      await sendJson<ProjectScene>(`/projects/${projectId}/scenes/${scene.id}`, "PATCH", draft);
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  async function saveSubtitle(subtitle: SubtitleSegment) {
+    const draft = subtitleDrafts[subtitle.id];
+    if (!draft) return;
+    await runAction("Subtitle saved", `subtitle-${subtitle.id}`, async () => {
+      await sendJson<SubtitleSegment>(`/projects/${projectId}/subtitles/${subtitle.id}`, "PATCH", draft);
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  async function savePromptRun() {
+    await runAction("Prompt run saved", "prompt", async () => {
+      await sendJson(`/projects/${projectId}/prompt-runs`, "POST", {
+        prompt: promptDraft,
+        mode: "text_media",
+        model_name: "CineSync v1 Enterprise"
+      });
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  async function createRenderJob() {
+    await runAction("Render job queued", "render", async () => {
+      await sendJson<SyncJob>(`/projects/${projectId}/render-jobs`, "POST", {
+        prompt: promptDraft,
+        mode: "text_media",
+        model_name: "CineSync v1 Enterprise"
+      });
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  async function createReviewDecision(status: ReviewStatus) {
+    await runAction("Review decision saved", `review-${status}`, async () => {
+      await sendJson(`/projects/${projectId}/reviews`, "POST", {
+        reviewer: "Owner",
+        status,
+        notes: reviewNotes
+      });
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  async function retryJob(job: SyncJob) {
+    await runAction("Render job retried", `retry-${job.id}`, async () => {
+      await sendJson<SyncJob>(`/projects/${projectId}/jobs/${job.id}/retry`, "POST", {});
+      await loadProject({ refreshDrafts: true });
+    });
+  }
+
+  function updateProjectDraft<K extends keyof ProjectDraft>(key: K, value: ProjectDraft[K]) {
+    setProjectDraft((draft) => (draft ? { ...draft, [key]: value } : draft));
+  }
+
+  function updateSceneDraft(sceneId: string, key: keyof SceneDraft, value: string) {
+    setSceneDrafts((drafts) => ({
+      ...drafts,
+      [sceneId]: {
+        ...drafts[sceneId],
+        [key]: value
+      }
+    }));
+  }
+
+  function updateSubtitleDraft(subtitleId: string, key: keyof SubtitleDraft, value: string) {
+    setSubtitleDrafts((drafts) => ({
+      ...drafts,
+      [subtitleId]: {
+        ...drafts[subtitleId],
+        [key]: value
+      }
+    }));
+  }
 
   const durationMs = useMemo(() => {
     if (!project?.scenes.length) return 45000;
@@ -65,7 +281,7 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
     );
   }
 
-  if (!project) {
+  if (!project || !projectDraft) {
     return (
       <section className="page-stack">
         <div className="panel"><p className="muted">Loading project editor...</p></div>
@@ -74,7 +290,6 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
   }
 
   const activeJob = project.jobs.find((job) => job.status === "processing") ?? project.jobs[0];
-  const firstPrompt = project.prompt_runs[0]?.prompt ?? project.brief ?? "Generate a localized, review-ready video variant.";
   const sourceAssets = [
     project.media_asset
       ? {
@@ -87,6 +302,8 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
     { name: "project_prompt.txt", type: "Prompt", duration: `${project.prompt_runs.length} runs`, ratio: "Locked" },
     { name: "review_policy.json", type: "Governance", duration: `${project.review_decisions.length} gates`, ratio: "QA" }
   ];
+
+  const projectSaving = savingKey === "project";
 
   return (
     <section className="page-stack editor-page">
@@ -123,13 +340,31 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
           </div>
 
           <div className="rail-section">
-            <span className="eyebrow">Review gates</span>
-            {project.review_decisions.map((decision) => (
-              <div className="review-row" key={decision.id}>
-                <strong>{decision.reviewer}</strong>
-                <span className="chip">{decision.status}</span>
-              </div>
-            ))}
+            <span className="eyebrow">Review notes</span>
+            <textarea
+              className="inline-textarea compact-field"
+              value={reviewNotes}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setReviewNotes(event.target.value)}
+              placeholder="Add approval notes or requested changes"
+            />
+            <div className="inline-actions">
+              <button
+                className="button-small button-secondary"
+                type="button"
+                disabled={savingKey === "review-changes_requested"}
+                onClick={() => createReviewDecision("changes_requested")}
+              >
+                Request changes
+              </button>
+              <button
+                className="button-small"
+                type="button"
+                disabled={savingKey === "review-approved"}
+                onClick={() => createReviewDecision("approved")}
+              >
+                Approve
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -137,23 +372,34 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
           <div className="editor-toolbar panel">
             <div>
               <span className="eyebrow">Live project editor</span>
-              <h1>{project.name}</h1>
+              <input
+                className="title-input"
+                value={projectDraft.name}
+                onChange={(event) => updateProjectDraft("name", event.target.value)}
+                aria-label="Project name"
+              />
             </div>
             <div className="inline-actions">
               <span className="chip">{project.status}</span>
               <span className="chip">Updated {new Date(project.updated_at).toLocaleTimeString()}</span>
-              <Link href="/upload" className="button">Generate variant</Link>
+              <button type="button" className="button-secondary" disabled={projectSaving} onClick={saveProjectSettings}>
+                {projectSaving ? "Saving..." : "Save settings"}
+              </button>
+              <button type="button" disabled={savingKey === "render"} onClick={createRenderJob}>
+                {savingKey === "render" ? "Queuing..." : "Generate variant"}
+              </button>
             </div>
           </div>
 
-          {error ? <div className="error">Refresh failed: {error}</div> : null}
+          {notice ? <div className="success-banner">{notice}</div> : null}
+          {error ? <div className="error">{error}</div> : null}
 
           <div className="video-workbench">
             <div className="video-canvas-shell">
               <div className="video-canvas-toolbar">
-                <span className="chip">{project.aspect_ratio} master</span>
-                <span className="chip">{project.caption_style}</span>
-                <span className="chip">{project.target_language.toUpperCase()}</span>
+                <span className="chip">{projectDraft.aspect_ratio} master</span>
+                <span className="chip">{projectDraft.caption_style}</span>
+                <span className="chip">{projectDraft.target_language.toUpperCase()}</span>
               </div>
               <div className="video-canvas">
                 <div className="safe-frame" />
@@ -182,14 +428,21 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
                     <span>Voice</span>
                   </div>
                 </div>
-                <textarea value={firstPrompt} readOnly />
+                <textarea value={promptDraft} onChange={(event) => setPromptDraft(event.target.value)} />
                 <div className="composer-footer">
                   <div className="chip-row">
-                    <span className="chip">{project.resolution}</span>
-                    <span className="chip">{project.voice_profile}</span>
+                    <span className="chip">{projectDraft.resolution}</span>
+                    <span className="chip">{projectDraft.voice_profile}</span>
                     <span className="chip">Human review</span>
                   </div>
-                  <button type="button">Run generation</button>
+                  <div className="inline-actions">
+                    <button className="button-secondary" type="button" disabled={savingKey === "prompt"} onClick={savePromptRun}>
+                      Save prompt
+                    </button>
+                    <button type="button" disabled={savingKey === "render"} onClick={createRenderJob}>
+                      Run generation
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -207,11 +460,30 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
             <div className="scene-track">
               {project.scenes.map((scene) => (
                 <div className="scene-clip" key={scene.id} style={{ width: clipWidth(scene.start_ms, scene.end_ms, durationMs) }}>
-                  <strong>{scene.title}</strong>
+                  <strong>{sceneDrafts[scene.id]?.title ?? scene.title}</strong>
                   <span>{formatMs(scene.start_ms)}</span>
-                  <small>{scene.status}</small>
+                  <small>{sceneDrafts[scene.id]?.status ?? scene.status}</small>
                 </div>
               ))}
+            </div>
+
+            <div className="editable-scene-grid">
+              {project.scenes.map((scene) => {
+                const draft = sceneDrafts[scene.id] ?? { title: scene.title, status: scene.status, prompt: scene.prompt ?? "" };
+                const key = `scene-${scene.id}`;
+                return (
+                  <div className="editable-row" key={scene.id}>
+                    <input value={draft.title} onChange={(event) => updateSceneDraft(scene.id, "title", event.target.value)} />
+                    <select value={draft.status} onChange={(event) => updateSceneDraft(scene.id, "status", event.target.value)}>
+                      {sceneStatuses.map((sceneStatus) => <option key={sceneStatus} value={sceneStatus}>{sceneStatus}</option>)}
+                    </select>
+                    <input value={draft.prompt} onChange={(event) => updateSceneDraft(scene.id, "prompt", event.target.value)} placeholder="Scene prompt" />
+                    <button className="button-small button-secondary" type="button" disabled={savingKey === key} onClick={() => saveScene(scene)}>
+                      {savingKey === key ? "Saving" : "Save"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="track-lane video-lane">
@@ -248,17 +520,33 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
               </div>
               <span className="chip">Inline QA</span>
             </div>
-            <div className="subtitle-grid">
+            <div className="subtitle-grid editable-subtitle-grid">
               {project.subtitles.length === 0 ? (
                 <div className="queue-empty">Subtitle rows will appear after the worker finishes translation.</div>
               ) : (
-                project.subtitles.map((row) => (
-                  <div className="subtitle-row" key={row.id}>
-                    <span className="timecode">{formatMs(row.start_ms)} - {formatMs(row.end_ms)}</span>
-                    <p>{row.source_text}</p>
-                    <strong>{row.translated_text}</strong>
-                  </div>
-                ))
+                project.subtitles.map((row) => {
+                  const draft = subtitleDrafts[row.id] ?? {
+                    source_text: row.source_text,
+                    translated_text: row.translated_text,
+                    status: row.status
+                  };
+                  const key = `subtitle-${row.id}`;
+                  return (
+                    <div className="subtitle-row editable-subtitle-row" key={row.id}>
+                      <span className="timecode">{formatMs(row.start_ms)} - {formatMs(row.end_ms)}</span>
+                      <textarea value={draft.source_text} onChange={(event) => updateSubtitleDraft(row.id, "source_text", event.target.value)} />
+                      <textarea value={draft.translated_text} onChange={(event) => updateSubtitleDraft(row.id, "translated_text", event.target.value)} />
+                      <select value={draft.status} onChange={(event) => updateSubtitleDraft(row.id, "status", event.target.value)}>
+                        {subtitleStatuses.map((subtitleStatus) => (
+                          <option key={subtitleStatus} value={subtitleStatus}>{subtitleStatus}</option>
+                        ))}
+                      </select>
+                      <button className="button-small button-secondary" type="button" disabled={savingKey === key} onClick={() => saveSubtitle(row)}>
+                        {savingKey === key ? "Saving" : "Save"}
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -268,20 +556,30 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
           <div className="inspector-card">
             <span className="eyebrow">Inspector</span>
             <h2>Output settings</h2>
-            <div className="timeline">
+            <div className="settings-form-grid">
               {[
-                ["Model", project.prompt_runs[0]?.model_name ?? "CineSync v1 Enterprise"],
-                ["Locale", `${project.source_language} to ${project.target_language}`],
-                ["Aspect", project.aspect_ratio],
-                ["Caption style", project.caption_style],
-                ["Voice", project.voice_profile],
-                ["Review policy", project.review_decisions[0]?.status ?? "pending"]
-              ].map(([label, value]) => (
-                <div className="timeline-item" key={label}>
-                  <strong>{label}</strong>
-                  <span className="muted">{value}</span>
-                </div>
+                ["source_language", "Source language"],
+                ["target_language", "Target language"],
+                ["aspect_ratio", "Aspect"],
+                ["resolution", "Resolution"],
+                ["caption_style", "Caption style"],
+                ["voice_profile", "Voice"]
+              ].map(([field, label]) => (
+                <label className="field compact-field" key={field}>
+                  <span>{label}</span>
+                  <input
+                    value={projectDraft[field as keyof ProjectDraft]}
+                    onChange={(event) => updateProjectDraft(field as keyof ProjectDraft, event.target.value)}
+                  />
+                </label>
               ))}
+              <label className="field compact-field full-span">
+                <span>Brief</span>
+                <textarea value={projectDraft.brief} onChange={(event) => updateProjectDraft("brief", event.target.value)} />
+              </label>
+              <button className="button-secondary full-span" type="button" disabled={projectSaving} onClick={saveProjectSettings}>
+                {projectSaving ? "Saving settings..." : "Save output settings"}
+              </button>
             </div>
           </div>
 
@@ -308,7 +606,7 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
             <div className="log-console compact-log">
               [{new Date(project.created_at).toISOString()}] project created\n
               [{new Date(project.updated_at).toISOString()}] project status: {project.status}\n
-              [{new Date().toISOString()}] polling /projects/{project.id} every 2500ms
+              [{new Date().toISOString()}] polling /projects/{project.id} every 3000ms
             </div>
           </div>
         </aside>
@@ -322,30 +620,43 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
           </div>
           <div className="inline-actions">
             <span className="chip">{project.jobs.length} jobs</span>
+            <button type="button" disabled={savingKey === "render"} onClick={createRenderJob}>Queue render</button>
             <Link href="/dashboard" className="button button-secondary">Dashboard</Link>
           </div>
         </div>
 
         <div className="render-queue-table">
-          <div className="queue-row queue-head">
+          <div className="queue-row queue-head queue-row-actions">
             <span>Asset</span>
             <span>Status</span>
             <span>Stage</span>
             <span>Progress</span>
             <span>Updated</span>
+            <span>Action</span>
           </div>
-          {project.jobs.map((job) => (
-            <Link href={`/jobs/${job.id}`} className="queue-row" key={job.id}>
-              <span>
-                <strong>{job.media_asset.original_filename}</strong>
-                <small>{formatBytes(job.media_asset.size_bytes)}</small>
-              </span>
-              <StatusBadge status={job.status} />
-              <span className="chip">{job.stage}</span>
-              <span><ProgressBar value={job.progress} /></span>
-              <span className="muted">{new Date(job.updated_at).toLocaleTimeString()}</span>
-            </Link>
-          ))}
+          {project.jobs.map((job) => {
+            const key = `retry-${job.id}`;
+            return (
+              <div className="queue-row queue-row-actions" key={job.id}>
+                <Link href={`/jobs/${job.id}`}>
+                  <strong>{job.media_asset.original_filename}</strong>
+                  <small>{formatBytes(job.media_asset.size_bytes)}</small>
+                </Link>
+                <StatusBadge status={job.status} />
+                <span className="chip">{job.stage}</span>
+                <span><ProgressBar value={job.progress} /></span>
+                <span className="muted">{new Date(job.updated_at).toLocaleTimeString()}</span>
+                <button
+                  className="button-small button-secondary"
+                  type="button"
+                  disabled={!retryableStatuses.includes(job.status) || savingKey === key}
+                  onClick={() => retryJob(job)}
+                >
+                  {savingKey === key ? "Retrying" : "Retry"}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {activeJob ? <p className="muted">Active worker stage: {activeJob.stage}</p> : null}

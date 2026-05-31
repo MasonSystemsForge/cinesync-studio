@@ -111,3 +111,46 @@ class ProjectListItem(BaseModel):
     media_asset: MediaAssetRead | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    brief: str | None = None
+    source_language: str | None = None
+    target_language: str | None = None
+    status: ProjectStatus | None = None
+    aspect_ratio: str | None = None
+    resolution: str | None = None
+    caption_style: str | None = None
+    voice_profile: str | None = None
+
+
+class SceneUpdate(BaseModel):
+    title: str | None = None
+    status: SceneStatus | None = None
+    prompt: str | None = None
+
+
+class SubtitleSegmentUpdate(BaseModel):
+    source_text: str | None = None
+    translated_text: str | None = None
+    status: ReviewStatus | None = None
+
+
+class PromptRunCreate(BaseModel):
+    prompt: str
+    mode: str = "text_media"
+    model_name: str = "CineSync v1 Enterprise"
+
+
+class ReviewDecisionCreate(BaseModel):
+    reviewer: str = "Owner"
+    status: ReviewStatus = ReviewStatus.pending
+    notes: str | None = None
+
+
+class RenderJobCreate(BaseModel):
+    prompt: str | None = None
+    mode: str = "text_media"
+    model_name: str = "CineSync v1 Enterprise"

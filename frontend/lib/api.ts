@@ -151,6 +151,16 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   return response.json() as Promise<T>;
 }
 
+export async function sendJson<T>(path: string, method: string, body: unknown): Promise<T> {
+  return fetchJson<T>(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
