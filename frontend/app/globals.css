@@ -661,3 +661,61 @@ select option { background: #10130f; }
     display: none;
   }
 }
+
+
+/* Real media preview and download controls */
+.media-canvas {
+  min-height: 320px;
+}
+
+.media-preview {
+  background: #050704;
+  border-radius: 16px;
+  height: 100%;
+  inset: 0;
+  object-fit: contain;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
+.media-canvas .safe-frame,
+.media-canvas .video-subtitle-overlay {
+  z-index: 3;
+}
+
+.audio-preview-card {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.36);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  max-width: min(420px, 86%);
+  padding: 22px;
+  position: relative;
+  width: 100%;
+  z-index: 2;
+}
+
+.audio-preview-card audio {
+  width: 100%;
+}
+
+.media-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.variant-row-rich {
+  grid-template-columns: 46px minmax(0, 1fr) max-content;
+}
+
+.variant-row-rich .table-action,
+.variant-row-rich small:last-child {
+  grid-column: 2 / -1;
+}

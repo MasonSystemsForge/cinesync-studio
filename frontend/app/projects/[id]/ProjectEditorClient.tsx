@@ -13,6 +13,7 @@ import {
   SceneStatus,
   SubtitleSegment,
   SyncJob,
+  API_BASE_URL,
   fetchJson,
   formatBytes,
   sendJson
@@ -290,6 +291,10 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
   }
 
   const activeJob = project.jobs.find((job) => job.status === "processing") ?? project.jobs[0];
+  const mediaStreamUrl = project.media_asset ? `${API_BASE_URL}/media/${project.media_asset.id}/stream` : null;
+  const mediaDownloadUrl = project.media_asset ? `${API_BASE_URL}/media/${project.media_asset.id}/download` : null;
+  const isVideo = Boolean(project.media_asset?.content_type?.startsWith("video/"));
+  const isAudio = Boolean(project.media_asset?.content_type?.startsWith("audio/"));
   const sourceAssets = [
     project.media_asset
       ? {
@@ -401,18 +406,34 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
                 <span className="chip">{projectDraft.caption_style}</span>
                 <span className="chip">{projectDraft.target_language.toUpperCase()}</span>
               </div>
-              <div className="video-canvas">
+              <div className="video-canvas media-canvas">
                 <div className="safe-frame" />
+                {mediaStreamUrl && isVideo ? (
+                  <video className="media-preview" controls src={mediaStreamUrl} />
+                ) : mediaStreamUrl && isAudio ? (
+                  <div className="audio-preview-card">
+                    <span className="eyebrow">Audio source</span>
+                    <strong>{project.media_asset?.original_filename}</strong>
+                    <audio controls src={mediaStreamUrl} />
+                  </div>
+                ) : (
+                  <span className="play-button">Preview</span>
+                )}
                 <div className="video-subtitle-overlay">
                   {project.subtitles[0]?.translated_text ?? "Waiting for localized subtitle output..."}
                 </div>
-                <span className="play-button">Play</span>
               </div>
               <div className="transport-bar">
                 <span>00:00</span>
                 <div className="scrub-line"><span /></div>
                 <span>{formatMs(durationMs)}</span>
               </div>
+              {mediaDownloadUrl ? (
+                <div className="media-action-row">
+                  <a className="button button-secondary button-small" href={mediaStreamUrl ?? mediaDownloadUrl} target="_blank" rel="noreferrer">Open source</a>
+                  <a className="button button-secondary button-small" href={mediaDownloadUrl}>Download source</a>
+                </div>
+              ) : null}
             </div>
 
             <div className="prompt-stack">
@@ -591,10 +612,37 @@ export function ProjectEditorClient({ projectId }: ProjectEditorClientProps) {
                 <div className="queue-empty">No variants yet.</div>
               ) : (
                 project.render_variants.map((variant) => (
-                  <div className="variant-row" key={variant.id}>
+                  <div className="variant-row variant-row-rich" key={variant.id}>
                     <span>{variant.label.split(" ").pop()}</span>
                     <strong>{variant.label}</strong>
                     <small>{variant.status}</small>
+                    {variant.render_path ? <small>{variant.render_path.split("/").pop()}</small> : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="inspector-card">
+            <span className="eyebrow">Exports</span>
+            <h2>Downloads</h2>
+            <div className="variant-list">
+              {project.exports.length === 0 ? (
+                <div className="queue-empty">No export records yet.</div>
+              ) : (
+                project.exports.map((projectExport) => (
+                  <div className="variant-row variant-row-rich" key={projectExport.id}>
+                    <span>{projectExport.format}</span>
+                    <strong>{projectExport.status}</strong>
+                    <small>{projectExport.output_path?.split("/").pop() ?? "Pending artifact"}</small>
+                    {projectExport.output_path ? (
+                      <a
+                        className="table-action"
+                        href={`${API_BASE_URL}/projects/${project.id}/exports/${projectExport.id}/download`}
+                      >
+                        Download
+                      </a>
+                    ) : null}
                   </div>
                 ))
               )}
