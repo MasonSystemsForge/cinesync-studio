@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { DashboardStudioSummary, DashboardSummary, SyncJob, fetchJson, formatBytes } from "@/lib/api";
+import { DashboardStudioSummary, DashboardSummary, ProjectListItem, SyncJob, fetchJson, formatBytes, sendJson } from "@/lib/api";
 
 const emptySummary: DashboardSummary = {
   total_jobs: 0,
@@ -44,6 +44,8 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
   const [studioSummary, setStudioSummary] = useState<DashboardStudioSummary>(emptyStudioSummary);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,15 +53,17 @@ export default function DashboardPage() {
 
     async function loadDashboard() {
       try {
-        const [nextSummary, nextStudioSummary, nextJobs] = await Promise.all([
+        const [nextSummary, nextStudioSummary, nextJobs, nextProjects] = await Promise.all([
           fetchJson<DashboardSummary>("/dashboard/summary", { cache: "no-store" }),
           fetchJson<DashboardStudioSummary>("/dashboard/studio", { cache: "no-store" }),
-          fetchJson<SyncJob[]>("/jobs", { cache: "no-store" })
+          fetchJson<SyncJob[]>("/jobs", { cache: "no-store" }),
+          fetchJson<ProjectListItem[]>("/projects", { cache: "no-store" })
         ]);
         if (!cancelled) {
           setSummary(nextSummary);
           setStudioSummary(nextStudioSummary);
           setJobs(nextJobs);
+          setProjects(nextProjects);
           setError(null);
         }
       } catch (loadError) {
@@ -76,6 +80,29 @@ export default function DashboardPage() {
       window.clearInterval(interval);
     };
   }, []);
+
+
+  async function seedDemoWorkspace() {
+    setIsSeeding(true);
+    setError(null);
+    try {
+      await sendJson<ProjectListItem[]>("/demo/seed", "POST", {});
+      const [nextSummary, nextStudioSummary, nextJobs, nextProjects] = await Promise.all([
+        fetchJson<DashboardSummary>("/dashboard/summary", { cache: "no-store" }),
+        fetchJson<DashboardStudioSummary>("/dashboard/studio", { cache: "no-store" }),
+        fetchJson<SyncJob[]>("/jobs", { cache: "no-store" }),
+        fetchJson<ProjectListItem[]>("/projects", { cache: "no-store" })
+      ]);
+      setSummary(nextSummary);
+      setStudioSummary(nextStudioSummary);
+      setJobs(nextJobs);
+      setProjects(nextProjects);
+    } catch (seedError) {
+      setError(seedError instanceof Error ? seedError.message : "Unable to seed demo workspace");
+    } finally {
+      setIsSeeding(false);
+    }
+  }
 
   const latestJob = jobs[0];
   const editorHref = latestJob?.project_id ? `/projects/${latestJob.project_id}` : "/upload";
@@ -167,7 +194,16 @@ export default function DashboardPage() {
               <span>Action</span>
             </div>
             {jobs.length === 0 ? (
-              <div className="empty-state">No render jobs yet. Create your first AI video render to populate this table.</div>
+              <div className="empty-state demo-empty-state">
+                <strong>No render jobs yet.</strong>
+                <span>Create your first AI video render or load a realistic demo workspace.</span>
+                <div className="inline-actions">
+                  <Link href="/upload" className="button button-small">Create Render</Link>
+                  <button type="button" className="button button-secondary button-small" disabled={isSeeding} onClick={seedDemoWorkspace}>
+                    {isSeeding ? "Loading demo..." : "Load Demo Workspace"}
+                  </button>
+                </div>
+              </div>
             ) : (
               jobs.slice(0, 8).map((job) => {
                 const href = job.project_id ? `/projects/${job.project_id}` : `/jobs/${job.id}`;
@@ -203,6 +239,23 @@ export default function DashboardPage() {
           <div className="pricing-line"><span>Latest cost</span><strong>{latestCost}</strong></div>
           <div className="pricing-line"><span>Budget used</span><strong>{Math.round(studioSummary.budget_used_percent)}%</strong></div>
           <Link href="#pricing" className="button button-full">Buy Credits</Link>
+        </section>
+
+        <section className="panel tips-card">
+          <span className="eyebrow">Projects</span>
+          <h2>Recent workspaces</h2>
+          <div className="recent-project-list">
+            {projects.length === 0 ? (
+              <p>No projects yet. Load demo data or create a render.</p>
+            ) : (
+              projects.slice(0, 4).map((project) => (
+                <Link href={`/projects/${project.id}`} className="recent-project-link" key={project.id}>
+                  <strong>{project.name}</strong>
+                  <span>{project.status} - {project.source_language} to {project.target_language}</span>
+                </Link>
+              ))
+            )}
+          </div>
         </section>
 
         <section className="panel tips-card" id="settings">

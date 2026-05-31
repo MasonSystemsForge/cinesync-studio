@@ -719,3 +719,42 @@ select option { background: #10130f; }
 .variant-row-rich small:last-child {
   grid-column: 2 / -1;
 }
+
+
+/* Demo workspace and recent projects */
+.demo-empty-state {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.demo-empty-state strong {
+  color: var(--text);
+}
+
+.demo-empty-state span {
+  color: var(--muted);
+}
+
+.recent-project-list {
+  display: grid;
+  gap: 10px;
+}
+
+.recent-project-link {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.recent-project-link:hover {
+  border-color: rgba(184, 255, 61, 0.24);
+}
+
+.recent-project-link span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}

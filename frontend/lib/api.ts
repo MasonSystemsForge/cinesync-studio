@@ -118,6 +118,17 @@ export type Project = {
   exports: ProjectExport[];
 };
 
+export type ProjectListItem = {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  source_language: string;
+  target_language: string;
+  created_at: string;
+  updated_at: string;
+  media_asset: MediaAsset | null;
+};
+
 export type UploadResponse = {
   job: SyncJob;
   project: {
