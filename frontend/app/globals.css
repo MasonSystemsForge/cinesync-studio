@@ -522,3 +522,142 @@ select option { background: #10130f; }
   .clean-hero,.panel,.stat-card { border-radius: 18px; padding: 16px; }
   .clean-hero h2 { font-size: 2.35rem; }
 }
+
+
+/* Mission-control refinement pass */
+.brand-lockup small {
+  max-width: 170px;
+  line-height: 1.35;
+}
+
+.dashboard-grid {
+  align-items: start;
+}
+
+.clean-hero {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  padding: 24px;
+}
+
+.clean-hero h2 {
+  font-size: clamp(2rem, 4vw, 3.45rem);
+  max-width: 650px;
+}
+
+.clean-hero p {
+  max-width: 660px;
+}
+
+.hero-actions {
+  margin-top: 18px;
+}
+
+.button-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted-strong);
+}
+
+.button-ghost:hover {
+  border-color: var(--line);
+  box-shadow: none;
+  color: var(--text);
+}
+
+.hero-preview-card {
+  align-self: stretch;
+  box-shadow: none;
+}
+
+.mini-video-frame {
+  min-height: 170px;
+}
+
+.caption-chip {
+  bottom: 14px;
+  font-size: 0.82rem;
+  max-width: calc(100% - 28px);
+  white-space: nowrap;
+}
+
+.stats-row {
+  gap: 10px;
+}
+
+.stat-card {
+  box-shadow: none;
+  padding: 16px;
+}
+
+.stat-card strong {
+  font-size: 1.75rem;
+}
+
+.right-panel {
+  position: sticky;
+  top: 22px;
+}
+
+.pipeline-panel,
+.jobs-panel,
+.pricing-card,
+.tips-card,
+.balance-card {
+  box-shadow: none;
+}
+
+.pipeline-steps {
+  gap: 8px;
+}
+
+.pipeline-step {
+  min-height: 96px;
+  position: relative;
+}
+
+.pipeline-step:not(:last-child)::after {
+  background: var(--line-strong);
+  content: "";
+  height: 1px;
+  position: absolute;
+  right: -9px;
+  top: 28px;
+  width: 9px;
+}
+
+.pipeline-step.active:not(:last-child)::after {
+  background: rgba(184, 255, 61, 0.34);
+}
+
+.jobs-row {
+  min-height: 62px;
+}
+
+.table-action {
+  background: rgba(184, 255, 61, 0.08);
+  border: 1px solid rgba(184, 255, 61, 0.18);
+  border-radius: 999px;
+  display: inline-flex;
+  justify-content: center;
+  padding: 7px 10px;
+}
+
+@media (max-width: 1180px) {
+  .right-panel {
+    position: static;
+  }
+
+  .clean-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .clean-hero h2 {
+    font-size: 2.15rem;
+  }
+
+  .pipeline-step:not(:last-child)::after {
+    display: none;
+  }
+}

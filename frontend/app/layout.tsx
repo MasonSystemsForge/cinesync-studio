@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CineSync Studio",
-  description: "AI video generation and localization studio"
+  description: "AI podcast, avatar, voice, and video rendering workspace"
 };
 
 const navItems = [
@@ -27,8 +27,8 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             <Link href="/dashboard" className="brand-lockup">
               <span className="brand-mark">CS</span>
               <span>
-                <strong>CineSync</strong>
-                <small>AI Video Studio</small>
+                <strong>CineSync Studio</strong>
+                <small>AI podcast, avatar, voice, and video rendering workspace</small>
               </span>
             </Link>
 
@@ -44,15 +44,15 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             <div className="sidebar-card">
               <span className="eyebrow">Workspace</span>
               <strong>Production Lite</strong>
-              <p>Fast mock renders, subtitle review, and project workflows for AI video teams.</p>
-              <Link href="/upload" className="button button-full button-small">New Render Job</Link>
+              <p>Mission control for synced video, avatar, voice, and subtitle production.</p>
+              <Link href="/upload" className="button button-full button-small">Create Render</Link>
             </div>
           </aside>
 
           <section className="workspace">
             <header className="studio-topbar">
               <div>
-                <span className="eyebrow">Current project</span>
+                <span className="eyebrow">Mission control</span>
                 <h1>Global Launch Video</h1>
               </div>
               <div className="topbar-actions">

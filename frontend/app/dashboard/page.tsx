@@ -81,17 +81,18 @@ export default function DashboardPage() {
             <span className="eyebrow">AI video generation</span>
             <h2>Create your next synced AI video</h2>
             <p>
-              Turn a brief into localized video variants with prompt control, avatar and voice direction,
-              render tracking, subtitle review, and export-ready project workflows.
+              Plan, price, render, and review AI video jobs from one focused workspace. Built for synced
+              podcast clips, avatars, voice passes, subtitles, and export-ready localized variants.
             </p>
             <div className="hero-actions">
-              <Link href="/upload" className="button">New Render Job</Link>
+              <Link href="/upload" className="button">Create Render</Link>
               <Link href={editorHref} className="button button-secondary">Open Editor</Link>
+              <Link href="#jobs" className="button button-ghost">View Jobs</Link>
             </div>
           </div>
           <div className="hero-preview-card">
             <div className="preview-toolbar">
-              <span>Studio preview</span>
+              <span>Render preview</span>
               <strong>16:9</strong>
             </div>
             <div className="mini-video-frame">
@@ -137,7 +138,7 @@ export default function DashboardPage() {
               <span className="eyebrow">Recent Jobs</span>
               <h2>Render activity</h2>
             </div>
-            <Link href="/upload" className="button button-secondary button-small">Create job</Link>
+            <Link href="/upload" className="button button-secondary button-small">Create Render</Link>
           </div>
 
           <div className="jobs-table">
@@ -185,12 +186,12 @@ export default function DashboardPage() {
           <div className="pricing-line"><span>Plan</span><strong>Studio Lite</strong></div>
           <div className="pricing-line"><span>Latest cost</span><strong>{latestCost}</strong></div>
           <div className="pricing-line"><span>Budget used</span><strong>41%</strong></div>
-          <Link href="/upload" className="button button-full">New Render Job</Link>
+          <Link href="#pricing" className="button button-full">Buy Credits</Link>
         </section>
 
         <section className="panel tips-card" id="settings">
           <span className="eyebrow">Quick tips</span>
-          <h2>Better renders</h2>
+          <h2>Quick tips</h2>
           <ul>
             <li>Keep prompts specific: format, scene, voice, and audience.</li>
             <li>Upload clean source audio for stronger subtitle timing.</li>
