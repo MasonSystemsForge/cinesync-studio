@@ -1,0 +1,33 @@
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Local media/runtime artifacts
+uploads/*
+!uploads/.gitkeep
+backend/uploads/
+backend/rendered/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
