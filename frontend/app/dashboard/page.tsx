@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -15,17 +15,24 @@ const emptySummary: DashboardSummary = {
   failed: 0
 };
 
-const tools = [
-  { title: "Video translation", kicker: "Core", text: "Create target-language scripts from uploaded source media." },
-  { title: "Subtitle timing", kicker: "Assist", text: "Prepare caption-ready passes from mock transcript output." },
-  { title: "Voice direction", kicker: "Creative", text: "Capture tone notes before production dubbing providers are connected." },
-  { title: "Render review", kicker: "FFmpeg", text: "Track the mock render artifact and handoff metadata." }
+const models = [
+  { name: "CineSync v1", tag: "Localization", text: "Balanced transcript, translation, and render metadata pipeline." },
+  { name: "Trailer Boost", tag: "Creative", text: "Sharper pacing language for launch cuts and teasers." },
+  { name: "Lecture Clean", tag: "Education", text: "Readable timing and glossary-safe adaptation." },
+  { name: "Compliance Pass", tag: "Review", text: "Enterprise QA preset for regulated video workflows." }
 ];
 
-const templates = [
-  { title: "Product launch trailer", text: "Short-form marketing localization with punchy subtitles." },
-  { title: "Course module", text: "Long-form educational voice and caption adaptation." },
-  { title: "Social cutdown", text: "Fast translation workflow for vertical clips and teasers." }
+const assets = [
+  { title: "Hero trailer source", meta: "16:9 - 00:45 - MOV" },
+  { title: "Spanish launch brief", meta: "Glossary - Brand terms" },
+  { title: "Caption safe zones", meta: "Preset - Social + OTT" }
+];
+
+const generations = [
+  { title: "Localized product reveal", meta: "ES subtitles - 1080p" },
+  { title: "Training module draft", meta: "FR transcript - QA pending" },
+  { title: "Social teaser batch", meta: "DE copy pass - 9:16" },
+  { title: "Executive recap", meta: "JA adaptation - Rendered" }
 ];
 
 export default function DashboardPage() {
@@ -62,45 +69,77 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const stats = [
-    ["Total", summary.total_jobs],
-    ["Queued", summary.queued],
-    ["Processing", summary.processing],
-    ["Completed", summary.completed],
-    ["Failed", summary.failed]
-  ] as const;
+  const stats = useMemo(
+    () => [
+      ["Total jobs", summary.total_jobs, "+12.4% throughput"],
+      ["Queued", summary.queued, "SLA monitored"],
+      ["Rendering", summary.processing, "Celery active"],
+      ["Completed", summary.completed, "Ready for review"],
+      ["Failed", summary.failed, "Needs triage"]
+    ] as const,
+    [summary]
+  );
 
   return (
     <section className="page-stack">
-      <div className="hero-card">
-        <div>
-          <span className="eyebrow">Create like an AI studio</span>
-          <h2 className="hero-title">Turn source footage into localized story assets.</h2>
-          <p className="hero-copy">
-            Upload a clip, queue the mock AI pipeline, and watch transcription, translation, and FFmpeg-ready
-            render metadata move through a creator-first workspace.
-          </p>
-          <div className="hero-actions">
-            <Link href="/upload" className="button">
-              Create localization
-            </Link>
-            <a href="http://localhost:8000/docs" className="button button-secondary">
-              API docs
-            </a>
+      <div className="hero-console">
+        <div className="command-card">
+          <div>
+            <span className="eyebrow">Generation command center</span>
+            <h2 className="hero-title">Produce localized video variants with operator-grade control.</h2>
+            <p className="hero-copy">
+              Brief the pipeline, select a model preset, queue media, and monitor each job through transcription,
+              translation, and FFmpeg-ready render handoff.
+            </p>
           </div>
-          <div className="chip-row" style={{ marginTop: 18 }}>
-            <span className="chip">FastAPI</span>
-            <span className="chip">Celery queue</span>
-            <span className="chip">Mock providers</span>
-            <span className="chip">FFmpeg aware</span>
+
+          <div className="prompt-composer">
+            <textarea defaultValue="Create a Spanish launch trailer cut with concise subtitles, preserve product names, and keep a cinematic high-energy tone." />
+            <div className="composer-footer">
+              <div className="segmented" aria-label="Generation mode">
+                <span className="active">Text + media</span>
+                <span>Subtitle pass</span>
+                <span>Dubbing brief</span>
+              </div>
+              <Link href="/upload" className="button">
+                Generate video
+              </Link>
+            </div>
+          </div>
+
+          <div className="settings-grid">
+            {[
+              ["Aspect", "16:9"],
+              ["Duration", "45 sec"],
+              ["Resolution", "1080p"],
+              ["Safety", "Brand locked"]
+            ].map(([label, value], index) => (
+              <div className={`setting-card ${index === 0 ? "active" : ""}`} key={label}>
+                <span className="muted">{label}</span>
+                <h3>{value}</h3>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="preview-grid">
-          <div className="preview-tile large">
-            <span className="preview-label">Studio canvas</span>
+
+        <div className="preview-monitor">
+          <div className="monitor-toolbar">
+            <span className="eyebrow">Live preview</span>
+            <span className="chip">Safe frame on</span>
           </div>
-          <div className="preview-tile">
-            <span className="preview-label">Localized cut preview</span>
+          <div className="monitor-stage">
+            <div className="monitor-toolbar">
+              <span className="chip">Scene 03</span>
+              <span className="chip">Draft render</span>
+            </div>
+            <div className="monitor-window">
+              <span className="play-button">Play</span>
+            </div>
+            <div className="timeline-scrub">
+              <span>00:18</span>
+              <div className="scrub-line"><span /></div>
+              <span>00:45</span>
+            </div>
           </div>
         </div>
       </div>
@@ -108,39 +147,47 @@ export default function DashboardPage() {
       {error ? <div className="error">Backend unavailable: {error}</div> : null}
 
       <div className="stats-grid">
-        {stats.map(([label, value]) => (
+        {stats.map(([label, value, delta]) => (
           <div className="stat-card" key={label}>
             <span className="muted">{label}</span>
             <span className="stat-value">{value}</span>
+            <span className="stat-delta">{delta}</span>
           </div>
         ))}
       </div>
 
       <div className="panel">
-        <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+        <div className="panel-header">
           <div>
-            <span className="eyebrow">Creation tools</span>
-            <h2>Choose a workflow</h2>
+            <span className="eyebrow">Model presets</span>
+            <h2>Production controls</h2>
           </div>
-          <Link href="/upload" className="button button-secondary">
-            New upload
-          </Link>
+          <div className="segmented">
+            <span className="active">Recommended</span>
+            <span>Fast</span>
+            <span>Quality</span>
+          </div>
         </div>
-        <div className="tools-grid">
-          {tools.map((tool) => (
-            <div className="tool-card" key={tool.title}>
-              <span className="card-kicker">{tool.kicker}</span>
-              <h3>{tool.title}</h3>
-              <span>{tool.text}</span>
+        <div className="model-grid">
+          {models.map((model, index) => (
+            <div className={`model-card ${index === 0 ? "active" : ""}`} key={model.name}>
+              <span className="card-kicker">{model.tag}</span>
+              <h3>{model.name}</h3>
+              <p>{model.text}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid-two">
+      <div className="ops-grid">
         <div className="panel">
-          <span className="eyebrow">Recent generations</span>
-          <h2>Job queue</h2>
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">Render operations</span>
+              <h2>Live job queue</h2>
+            </div>
+            <Link href="/upload" className="button button-secondary">New job</Link>
+          </div>
           <div className="jobs-list">
             {jobs.length === 0 ? (
               <p className="muted">No jobs yet. Upload a file to kick off the first localization run.</p>
@@ -163,17 +210,36 @@ export default function DashboardPage() {
         </div>
 
         <div className="panel">
-          <span className="eyebrow">Templates</span>
-          <h2>Start from a style</h2>
-          <div className="templates-grid" style={{ gridTemplateColumns: "1fr" }}>
-            {templates.map((template) => (
-              <Link href="/upload" className="template-card" key={template.title}>
-                <span className="card-kicker">Preset</span>
-                <h3>{template.title}</h3>
-                <span>{template.text}</span>
+          <span className="eyebrow">Source kit</span>
+          <h2>Workspace assets</h2>
+          <div className="asset-grid" style={{ gridTemplateColumns: "1fr" }}>
+            {assets.map((asset) => (
+              <Link href="/upload" className="asset-card" key={asset.title}>
+                <div className="asset-thumb" />
+                <h3>{asset.title}</h3>
+                <p>{asset.meta}</p>
               </Link>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">Generation board</span>
+            <h2>Recent video variants</h2>
+          </div>
+          <span className="chip">Enterprise review mode</span>
+        </div>
+        <div className="generation-grid">
+          {generations.map((item) => (
+            <div className="generation-card" key={item.title}>
+              <div className="generation-thumb" />
+              <h3>{item.title}</h3>
+              <p>{item.meta}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

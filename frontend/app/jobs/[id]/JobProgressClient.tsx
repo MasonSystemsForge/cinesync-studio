@@ -10,11 +10,11 @@ import { SyncJob, fetchJson, formatBytes } from "@/lib/api";
 const stages = ["upload", "transcribing", "translating", "rendering", "completed"] as const;
 
 const stageCopy: Record<string, string> = {
-  upload: "Media accepted and job created",
-  transcribing: "Mock speech provider extracts source transcript",
-  translating: "Mock translation provider adapts the text",
-  rendering: "FFmpeg-aware mock render writes an artifact",
-  completed: "Localized render metadata is ready",
+  upload: "Source media is registered and ready for worker pickup",
+  transcribing: "Speech-to-text provider is extracting the source script",
+  translating: "Translation provider is adapting copy for the target locale",
+  rendering: "FFmpeg-aware render provider is writing output metadata",
+  completed: "Render metadata is ready for enterprise review",
   failed: "The worker reported a failure"
 };
 
@@ -77,39 +77,56 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
 
   return (
     <section className="page-stack">
-      <div className="hero-card">
-        <div>
-          <span className="eyebrow">Generation detail</span>
+      <div className="hero-console">
+        <div className="command-card">
+          <span className="eyebrow">Generation control room</span>
           <h2 className="hero-title">{job.media_asset.original_filename}</h2>
           <p className="hero-copy">
-            {job.source_language} to {job.target_language} - {formatBytes(job.media_asset.size_bytes)}. Follow the
-            job as it moves through the mocked CineSync provider chain.
+            {job.source_language} to {job.target_language} - {formatBytes(job.media_asset.size_bytes)}. Monitor the
+            job through provider stages, review generated text, and inspect render handoff metadata.
           </p>
           <div className="inline-actions">
             <StatusBadge status={job.status} />
             <span className="chip">Stage: {job.stage}</span>
+            <span className="chip">SLA target: 5 min</span>
             <span className="chip">Updated: {new Date(job.updated_at).toLocaleTimeString()}</span>
           </div>
-          <div style={{ marginTop: 24 }}>
-            <ProgressBar value={job.progress} />
-          </div>
+          <ProgressBar value={job.progress} />
           <p className="muted">{job.progress}% complete</p>
           {error ? <div className="error">Refresh failed: {error}</div> : null}
         </div>
-        <div className="preview-grid">
-          <div className="preview-tile large">
-            <span className="preview-label">Localized preview</span>
+
+        <div className="preview-monitor">
+          <div className="monitor-toolbar">
+            <span className="eyebrow">Review player</span>
+            <span className="chip">Safe zones enabled</span>
           </div>
-          <div className="preview-tile">
-            <span className="preview-label">Render artifact monitor</span>
+          <div className="monitor-stage">
+            <div className="monitor-toolbar">
+              <span className="chip">{job.target_language.toUpperCase()} draft</span>
+              <span className="chip">{job.status}</span>
+            </div>
+            <div className="monitor-window">
+              <span className="play-button">Play</span>
+            </div>
+            <div className="timeline-scrub">
+              <span>00:00</span>
+              <div className="scrub-line"><span /></div>
+              <span>Render</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid-two">
+      <div className="job-detail-grid">
         <div className="panel">
-          <span className="eyebrow">Pipeline</span>
-          <h2>Live progress</h2>
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">Pipeline telemetry</span>
+              <h2>Provider execution</h2>
+            </div>
+            <span className="chip">Celery worker</span>
+          </div>
           <div className="timeline">
             {stages.map((stage, index) => {
               const active = job.stage === stage;
@@ -118,7 +135,7 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
                 <div className={`timeline-item ${active ? "active" : ""}`} key={stage}>
                   <div>
                     <strong>{stage}</strong>
-                    <p className="muted" style={{ marginBottom: 0 }}>{stageCopy[stage]}</p>
+                    <p className="muted">{stageCopy[stage]}</p>
                   </div>
                   <span className="chip">{active ? "Active" : done ? "Done" : "Waiting"}</span>
                 </div>
@@ -127,12 +144,12 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
           </div>
         </div>
 
-        <div className="panel">
-          <span className="eyebrow">Asset details</span>
-          <h2>Source media</h2>
+        <div className="inspector-card">
+          <span className="eyebrow">Inspector</span>
+          <h2>Source and governance</h2>
           <div className="timeline">
             <div className="timeline-item">
-              <strong>File type</strong>
+              <strong>Content type</strong>
               <span className="muted">{job.media_asset.content_type ?? "Unknown"}</span>
             </div>
             <div className="timeline-item">
@@ -143,6 +160,10 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
               <strong>Completed</strong>
               <span className="muted">{job.completed_at ? new Date(job.completed_at).toLocaleString() : "Pending"}</span>
             </div>
+            <div className="timeline-item">
+              <strong>Review gate</strong>
+              <span className="chip">Owner approval</span>
+            </div>
           </div>
         </div>
       </div>
@@ -150,15 +171,33 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
       <div className="output-grid">
         <div className="output-card">
           <span className="eyebrow">Transcript</span>
-          <pre>{job.transcript_text ?? "Waiting for mock transcription..."}</pre>
+          <h3>Source script</h3>
+          <pre>{job.transcript_text ?? "Waiting for speech-to-text provider output..."}</pre>
         </div>
         <div className="output-card">
           <span className="eyebrow">Translation</span>
-          <pre>{job.translated_text ?? "Waiting for mock translation..."}</pre>
+          <h3>Target copy</h3>
+          <pre>{job.translated_text ?? "Waiting for translation provider output..."}</pre>
         </div>
         <div className="output-card">
-          <span className="eyebrow">Render</span>
-          <pre>{job.render_path ?? "Waiting for mock render..."}</pre>
+          <span className="eyebrow">Render handoff</span>
+          <h3>Artifact</h3>
+          <pre>{job.render_path ?? "Waiting for render provider artifact..."}</pre>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">System log</span>
+            <h2>Execution trace</h2>
+          </div>
+          <span className="chip">Mock provider mode</span>
+        </div>
+        <div className="log-console">
+          [{new Date(job.created_at).toISOString()}] upload accepted for {job.media_asset.original_filename}\n
+          [{new Date(job.updated_at).toISOString()}] current stage: {job.stage}\n
+          [{new Date().toISOString()}] polling /jobs/{job.id} every 2500ms
         </div>
       </div>
 
@@ -166,10 +205,10 @@ export function JobProgressClient({ jobId }: JobProgressClientProps) {
 
       <div className="inline-actions">
         <Link href="/dashboard" className="button button-secondary">
-          Back to dashboard
+          Back to command center
         </Link>
         <Link href="/upload" className="button">
-          Create another
+          Create another generation
         </Link>
       </div>
     </section>
