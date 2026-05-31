@@ -94,3 +94,19 @@ alembic upgrade head
 ```
 
 For local Docker-based development, the API still creates tables on startup as a convenience. Use Alembic for deployed environments and future schema changes.
+
+
+## FFmpeg exports
+
+Worker renders now create subtitle sidecars for each processed job:
+
+- `.srt` subtitle file
+- `.vtt` subtitle file
+- `.mp4` export with a soft subtitle track when FFmpeg can read a video source
+- `.json` fallback artifact when source media is missing, audio-only, or FFmpeg cannot mux the source
+
+Ready project exports can be downloaded from:
+
+```text
+GET /projects/{project_id}/exports/{export_id}/download
+```

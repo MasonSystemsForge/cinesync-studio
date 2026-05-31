@@ -92,7 +92,23 @@ def process_job(job_id: str) -> None:
         db.commit()
 
         _set_progress(db, job, status=JobStatus.processing, stage=JobStage.rendering, progress=85)
-        job.render_path = renderer.render(job.id, job.media_asset.storage_path, job.translated_text or "")
+        subtitle_payload = []
+        if job.project is not None:
+            subtitle_payload = [
+                {
+                    "start_ms": subtitle.start_ms,
+                    "end_ms": subtitle.end_ms,
+                    "text": subtitle.translated_text,
+                }
+                for subtitle in job.project.subtitles
+            ]
+        render_result = renderer.render(
+            job.id,
+            job.media_asset.storage_path,
+            job.translated_text or "",
+            subtitle_payload,
+        )
+        job.render_path = render_result.output_path
         estimated_cost_usd, credits_used, render_seconds = _estimate_render_cost(job)
         db.add(
             RenderCost(
@@ -121,8 +137,8 @@ def process_job(job_id: str) -> None:
                     label="Draft render v1",
                     status=ExportStatus.ready,
                     render_path=job.render_path,
-                    render_metadata={
-                        "provider": "mock_render",
+                    render_metadata=render_result.metadata
+                    | {
                         "aspect_ratio": job.project.aspect_ratio,
                         "resolution": job.project.resolution,
                         "estimated_cost_usd": estimated_cost_usd,
